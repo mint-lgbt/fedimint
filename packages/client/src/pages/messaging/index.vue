@@ -1,9 +1,9 @@
 <template>
 <MkStickyContainer>
-	<template #header><MkPageHeader :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader/></template>
 	<MkSpacer :content-max="800">
 		<div v-size="{ max: [400] }" class="yweeujhr">
-			<MkButton primary class="start" @click="start"><i class="fas fa-plus"></i> {{ $ts.startMessaging }}</MkButton>
+			<MkButton primary class="start" @click="start"><i class="fas fa-plus"></i> {{ i18n.ts.startMessaging }}</MkButton>
 
 			<div v-if="messages.length > 0" class="history">
 				<MkA
@@ -27,14 +27,14 @@
 							<MkTime :time="message.createdAt" class="time"/>
 						</header>
 						<div class="body">
-							<p class="text"><span v-if="isMe(message)" class="me">{{ $ts.you }}:</span>{{ message.text }}</p>
+							<p class="text"><span v-if="isMe(message)" class="me">{{ i18n.ts.you }}:</span>{{ message.text }}</p>
 						</div>
 					</div>
 				</MkA>
 			</div>
 			<div v-if="!fetching && messages.length == 0" class="_fullinfo">
-				<img src="https://xn--931a.moe/assets/info.jpg" class="_ghost"/>
-				<div>{{ $ts.noHistory }}</div>
+				<img :src="instance.images.info" class="_ghost"/>
+				<div>{{ i18n.ts.noHistory }}</div>
 			</div>
 			<MkLoading v-if="fetching"/>
 		</div>
@@ -44,7 +44,7 @@
 
 <script lang="ts" setup>
 import { defineAsyncComponent, defineComponent, inject, markRaw, onMounted, onUnmounted } from 'vue';
-import * as Acct from 'misskey-js/built/acct';
+import * as Acct from 'foundkey-js/built/acct';
 import MkButton from '@/components/ui/button.vue';
 import { acct } from '@/filters/user';
 import * as os from '@/os';
@@ -53,6 +53,7 @@ import { useRouter } from '@/router';
 import { i18n } from '@/i18n';
 import { definePageMetadata } from '@/scripts/page-metadata';
 import { $i } from '@/account';
+import { instance } from '@/instance';
 
 const router = useRouter();
 
@@ -151,10 +152,6 @@ onMounted(() => {
 onUnmounted(() => {
 	if (connection) connection.dispose();
 });
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.messaging,

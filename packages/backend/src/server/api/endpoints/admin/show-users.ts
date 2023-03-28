@@ -1,3 +1,4 @@
+import { DAY } from '@/const.js';
 import { Users } from '@/models/index.js';
 import define from '../../define.js';
 
@@ -25,13 +26,11 @@ export const paramDef = {
 		offset: { type: 'integer', default: 0 },
 		sort: { type: 'string', enum: ['+follower', '-follower', '+createdAt', '-createdAt', '+updatedAt', '-updatedAt'] },
 		state: { type: 'string', enum: ['all', 'alive', 'available', 'admin', 'moderator', 'adminOrModerator', 'silenced', 'suspended'], default: 'all' },
-		origin: { type: 'string', enum: ['combined', 'local', 'remote'], default: 'local' },
+		origin: { type: 'string', enum: ['combined', 'local', 'remote'], default: 'combined' },
 		username: { type: 'string', nullable: true, default: null },
 		hostname: {
 			type: 'string',
-			nullable: true,
-			default: null,
-			description: 'The local host is represented with `null`.',
+			description: "To represent the local host, use `origin: 'local'` instead.",
 		},
 	},
 	required: [],
@@ -42,13 +41,13 @@ export default define(meta, paramDef, async (ps, me) => {
 	const query = Users.createQueryBuilder('user');
 
 	switch (ps.state) {
-		case 'available': query.where('user.isSuspended = FALSE'); break;
-		case 'admin': query.where('user.isAdmin = TRUE'); break;
-		case 'moderator': query.where('user.isModerator = TRUE'); break;
-		case 'adminOrModerator': query.where('user.isAdmin = TRUE OR user.isModerator = TRUE'); break;
-		case 'alive': query.where('user.updatedAt > :date', { date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5) }); break;
-		case 'silenced': query.where('user.isSilenced = TRUE'); break;
-		case 'suspended': query.where('user.isSuspended = TRUE'); break;
+		case 'available': query.where('NOT user.isSuspended'); break;
+		case 'admin': query.where('user.isAdmin'); break;
+		case 'moderator': query.where('user.isModerator'); break;
+		case 'adminOrModerator': query.where('user.isAdmin OR user.isModerator'); break;
+		case 'alive': query.where('user.updatedAt > :date', { date: new Date(Date.now() - 5 * DAY) }); break;
+		case 'silenced': query.where('user.isSilenced'); break;
+		case 'suspended': query.where('user.isSuspended'); break;
 	}
 
 	switch (ps.origin) {

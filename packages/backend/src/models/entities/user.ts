@@ -81,7 +81,7 @@ export class User {
 	})
 	public avatarId: DriveFile['id'] | null;
 
-	@OneToOne(type => DriveFile, {
+	@OneToOne(() => DriveFile, {
 		onDelete: 'SET NULL',
 	})
 	@JoinColumn()
@@ -94,7 +94,7 @@ export class User {
 	})
 	public bannerId: DriveFile['id'] | null;
 
-	@OneToOne(type => DriveFile, {
+	@OneToOne(() => DriveFile, {
 		onDelete: 'SET NULL',
 	})
 	@JoinColumn()
@@ -155,7 +155,14 @@ export class User {
 	})
 	public isExplorable: boolean;
 
-	// アカウントが削除されたかどうかのフラグだが、完全に削除される際は物理削除なので実質削除されるまでの「削除が進行しているかどうか」のフラグ
+	// for local users:
+	// Indicates a deletion in progress.
+	// A hard delete of the record will follow after the deletion finishes.
+	//
+	// for remote users:
+	// Indicates the user was deleted by an admin.
+	// The users' data is not deleted from the database to keep them from reappearing.
+	// A hard delete of the record may follow if we receive a matching Delete activity.
 	@Column('boolean', {
 		default: false,
 		comment: 'Whether the User is deleted.',
@@ -214,9 +221,14 @@ export class User {
 	@Index({ unique: true })
 	@Column('char', {
 		length: 16, nullable: true, unique: true,
-		comment: 'The native access token of the User. It will be null if the origin of the user is local.',
+		comment: 'The native access token of local users, or null.',
 	})
 	public token: string | null;
+
+	@Column('boolean', {
+		default: true,
+	})
+	public federateBlocks: boolean;
 
 	constructor(data: Partial<User>) {
 		if (data == null) return;
@@ -229,10 +241,12 @@ export class User {
 
 export interface ILocalUser extends User {
 	host: null;
+	token: string;
 }
 
 export interface IRemoteUser extends User {
 	host: string;
+	token: null;
 }
 
 export type CacheableLocalUser = ILocalUser;

@@ -37,7 +37,6 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import MkSignin from '@/components/signin.vue';
 import MkButton from '@/components/ui/button.vue';
 import * as os from '@/os';
@@ -55,7 +54,7 @@ const props = defineProps<{
 
 let state: 'waiting' | 'denied' | 'accepted' | 'initial' = $ref('initial');
 
-async function accept() {
+async function accept(): Promise<void> {
 	state = 'waiting';
 	await os.api('miauth/gen-token', {
 		session: props.session,
@@ -72,11 +71,11 @@ async function accept() {
 	}
 }
 
-function deny() {
+function deny(): void {
 	state = 'denied';
 }
 
-function onLogin(res) {
+function onLogin(res): void {
 	login(res.i);
 }
 </script>

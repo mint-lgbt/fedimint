@@ -7,20 +7,20 @@
 	<FormSection>
 		<template #label>{{ i18n.ts.sounds }}</template>
 		<FormLink v-for="type in Object.keys(sounds)" :key="type" style="margin-bottom: 8px;" @click="edit(type)">
-			{{ $t('_sfx.' + type) }}
+			{{ i18n.t('_sfx.' + type) }}
 			<template #suffix>{{ sounds[type].type || i18n.ts.none }}</template>
 			<template #suffixIcon><i class="fas fa-chevron-down"></i></template>
 		</FormLink>
 	</FormSection>
 
-	<FormButton danger class="_formBlock" @click="reset()"><i class="fas fa-redo"></i> {{ i18n.ts.default }}</FormButton>
+	<MkButton danger class="_formBlock" @click="reset()"><i class="fas fa-redo"></i> {{ i18n.ts.default }}</MkButton>
 </div>
 </template>
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
 import FormRange from '@/components/form/range.vue';
-import FormButton from '@/components/ui/button.vue';
+import MkButton from '@/components/ui/button.vue';
 import FormLink from '@/components/form/link.vue';
 import FormSection from '@/components/form/section.vue';
 import * as os from '@/os';
@@ -85,7 +85,7 @@ async function edit(type) {
 			type: 'enum',
 			enum: soundsTypes.map(x => ({
 				value: x,
-				label: x == null ? i18n.ts.none : x,
+				label: x ?? i18n.ts.none,
 			})),
 			label: i18n.ts.sound,
 			default: sounds.value[type].type,
@@ -125,10 +125,6 @@ function reset() {
 		sounds.value[sound] = v;
 	}
 }
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.sounds,

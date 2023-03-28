@@ -17,11 +17,11 @@ const emit = defineEmits<{
 	(ev: 'mounted'): void;
 }>();
 
-const props = defineProps<{
-	place: {
-		type: string;
-	};
-}>();
+const props = withDefaults(defineProps<{
+	place?: 'left' | null;
+}>(), {
+	place: null,
+});
 
 let editMode: boolean = $ref(false);
 
@@ -50,7 +50,7 @@ function updateWidget({ id, data }) {
 function updateWidgets(widgets) {
 	defaultStore.set('widgets', [
 		...defaultStore.state.widgets.filter(w => w.place !== props.place),
-		...widgets
+		...widgets,
 	]);
 }
 </script>

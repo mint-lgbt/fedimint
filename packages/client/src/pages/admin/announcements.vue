@@ -1,19 +1,19 @@
 <template>
 <MkStickyContainer>
-	<template #header><XHeader :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader :actions="headerActions"/></template>
 	<MkSpacer :content-max="900">
 		<div class="ztgjmzrw">
 			<section v-for="announcement in announcements" class="_card _gap announcements">
 				<div class="_content announcement">
-					<MkInput v-model="announcement.title">
+					<FormInput v-model="announcement.title">
 						<template #label>{{ i18n.ts.title }}</template>
-					</MkInput>
-					<MkTextarea v-model="announcement.text">
+					</FormInput>
+					<FormTextarea v-model="announcement.text">
 						<template #label>{{ i18n.ts.text }}</template>
-					</MkTextarea>
-					<MkInput v-model="announcement.imageUrl">
+					</FormTextarea>
+					<FormInput v-model="announcement.imageUrl">
 						<template #label>{{ i18n.ts.imageUrl }}</template>
-					</MkInput>
+					</FormInput>
 					<p v-if="announcement.reads">{{ i18n.t('nUsersRead', { n: announcement.reads }) }}</p>
 					<div class="buttons">
 						<MkButton class="button" inline primary @click="save(announcement)"><i class="fas fa-save"></i> {{ i18n.ts.save }}</MkButton>
@@ -27,11 +27,9 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
-import XHeader from './_header_.vue';
 import MkButton from '@/components/ui/button.vue';
-import MkInput from '@/components/form/input.vue';
-import MkTextarea from '@/components/form/textarea.vue';
+import FormInput from '@/components/form/input.vue';
+import FormTextarea from '@/components/form/textarea.vue';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
 import { definePageMetadata } from '@/scripts/page-metadata';
@@ -96,8 +94,6 @@ const headerActions = $computed(() => [{
 	text: i18n.ts.add,
 	handler: add,
 }]);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.announcements,

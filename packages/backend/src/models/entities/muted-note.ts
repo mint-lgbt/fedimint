@@ -1,5 +1,5 @@
 import { Entity, Index, JoinColumn, Column, ManyToOne, PrimaryColumn } from 'typeorm';
-import { mutedNoteReasons } from '@/types.js';
+import { mutedNoteReasons } from 'foundkey-js';
 import { id } from '../id.js';
 import { Note } from './note.js';
 import { User } from './user.js';
@@ -17,7 +17,7 @@ export class MutedNote {
 	})
 	public noteId: Note['id'];
 
-	@ManyToOne(type => Note, {
+	@ManyToOne(() => Note, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()
@@ -30,7 +30,7 @@ export class MutedNote {
 	})
 	public userId: User['id'];
 
-	@ManyToOne(type => User, {
+	@ManyToOne(() => User, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()

@@ -1,7 +1,7 @@
 import { PrimaryColumn, Entity, Index, JoinColumn, Column, ManyToOne } from 'typeorm';
+import { noteNotificationTypes } from 'foundkey-js';
 import { id } from '../id.js';
 import { User } from './user.js';
-import { Note } from './note.js';
 
 @Entity()
 @Index(['userId', 'threadId'], { unique: true })
@@ -19,7 +19,7 @@ export class NoteThreadMuting {
 	})
 	public userId: User['id'];
 
-	@ManyToOne(type => User, {
+	@ManyToOne(() => User, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()
@@ -30,4 +30,11 @@ export class NoteThreadMuting {
 		length: 256,
 	})
 	public threadId: string;
+
+	@Column('enum', {
+		enum: noteNotificationTypes,
+		array: true,
+		default: [],
+	})
+	public mutingNotificationTypes: typeof noteNotificationTypes[number][];
 }

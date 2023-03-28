@@ -23,7 +23,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineAsyncComponent, inject, nextTick, onMounted, onUnmounted, provide, watch } from 'vue';
+import { defineAsyncComponent, nextTick, onMounted, onUnmounted, provide, watch } from 'vue';
 import { i18n } from '@/i18n';
 import MkSuperMenu from '@/components/ui/super-menu.vue';
 import MkInfo from '@/components/ui/info.vue';
@@ -32,7 +32,7 @@ import { instance } from '@/instance';
 import * as os from '@/os';
 import { lookupUser } from '@/scripts/lookup-user';
 import { useRouter } from '@/router';
-import { definePageMetadata, provideMetadataReceiver, setPageMetadata } from '@/scripts/page-metadata';
+import { definePageMetadata } from '@/scripts/page-metadata';
 
 const isEmpty = (x: string | null) => x == null || x === '';
 
@@ -51,10 +51,9 @@ const props = defineProps<{
 provide('shouldOmitHeaderTitle', false);
 
 let INFO = $ref(indexInfo);
-let childInfo = $ref(null);
+// FIXME use page instead of props.initialPage
 let page = $ref(props.initialPage);
 let narrow = $ref(false);
-let view = $ref(null);
 let el = $ref(null);
 let pageProps = $ref({});
 let noMaintainerInformation = isEmpty(instance.maintainerName) || isEmpty(instance.maintainerEmail);
@@ -70,7 +69,7 @@ os.api('admin/abuse-user-reports', {
 });
 
 const NARROW_THRESHOLD = 600;
-const ro = new ResizeObserver((entries, observer) => {
+const ro = new ResizeObserver((entries) => {
 	if (entries.length === 0) return;
 	narrow = entries[0].borderBoxSize[0].inlineSize < NARROW_THRESHOLD;
 });
@@ -159,11 +158,6 @@ const menuDef = $computed(() => [{
 		to: '/admin/relays',
 		active: props.initialPage === 'relays',
 	}, {
-		icon: 'fas fa-share-alt',
-		text: i18n.ts.integration,
-		to: '/admin/integrations',
-		active: props.initialPage === 'integrations',
-	}, {
 		icon: 'fas fa-ban',
 		text: i18n.ts.instanceBlocking,
 		to: '/admin/instance-block',
@@ -173,6 +167,11 @@ const menuDef = $computed(() => [{
 		text: i18n.ts.proxyAccount,
 		to: '/admin/proxy-account',
 		active: props.initialPage === 'proxy-account',
+	}, {
+		icon: 'fas fa-language',
+		text: i18n.ts.translationSettings,
+		to: '/admin/translation-settings',
+		active: props.initialPage === 'translation-settings',
 	}],
 }, {
 	title: i18n.ts.info,
@@ -185,12 +184,11 @@ const menuDef = $computed(() => [{
 }]);
 
 const component = $computed(() => {
-	if (props.initialPage == null) return null;
 	switch (props.initialPage) {
 		case 'overview': return defineAsyncComponent(() => import('./overview.vue'));
 		case 'users': return defineAsyncComponent(() => import('./users.vue'));
 		case 'emojis': return defineAsyncComponent(() => import('./emojis.vue'));
-		case 'federation': return defineAsyncComponent(() => import('../federation.vue'));
+		case 'federation': return defineAsyncComponent(() => import('./federation.vue'));
 		case 'queue': return defineAsyncComponent(() => import('./queue.vue'));
 		case 'files': return defineAsyncComponent(() => import('./files.vue'));
 		case 'announcements': return defineAsyncComponent(() => import('./announcements.vue'));
@@ -201,9 +199,10 @@ const component = $computed(() => {
 		case 'object-storage': return defineAsyncComponent(() => import('./object-storage.vue'));
 		case 'security': return defineAsyncComponent(() => import('./security.vue'));
 		case 'relays': return defineAsyncComponent(() => import('./relays.vue'));
-		case 'integrations': return defineAsyncComponent(() => import('./integrations.vue'));
 		case 'instance-block': return defineAsyncComponent(() => import('./instance-block.vue'));
 		case 'proxy-account': return defineAsyncComponent(() => import('./proxy-account.vue'));
+		case 'translation-settings': return defineAsyncComponent(() => import('./translation-settings.vue'));
+		default: return null;
 	}
 });
 
@@ -242,14 +241,6 @@ onMounted(() => {
 
 onUnmounted(() => {
 	ro.disconnect();
-});
-
-provideMetadataReceiver((info) => {
-	if (info == null) {
-		childInfo = null;
-	} else {
-		childInfo = info;
-	}
 });
 
 const invite = () => {
@@ -293,10 +284,6 @@ const lookup = (ev) => {
 		},
 	}], ev.currentTarget ?? ev.target);
 };
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata(INFO);
 

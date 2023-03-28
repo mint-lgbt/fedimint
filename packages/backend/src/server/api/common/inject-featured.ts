@@ -1,6 +1,7 @@
-import rndstr from 'rndstr';
+import { DAY } from '@/const.js';
 import { Note } from '@/models/entities/note.js';
 import { User } from '@/models/entities/user.js';
+import { secureRndstr } from '@/misc/secure-rndstr.js';
 import { Notes, UserProfiles, NoteReactions } from '@/models/index.js';
 import { generateMutedUserQuery } from './generate-muted-user-query.js';
 import { generateBlockedUserQuery } from './generate-block-query.js';
@@ -16,13 +17,13 @@ export async function injectFeatured(timeline: Note[], user?: User | null) {
 	}
 
 	const max = 30;
-	const day = 1000 * 60 * 60 * 24 * 3; // 3日前まで
+	const offset = 3 * DAY;
 
 	const query = Notes.createQueryBuilder('note')
 		.addSelect('note.score')
 		.where('note.userHost IS NULL')
 		.andWhere('note.score > 0')
-		.andWhere('note.createdAt > :date', { date: new Date(Date.now() - day) })
+		.andWhere('note.createdAt > :date', { date: new Date(Date.now() - offset) })
 		.andWhere("note.visibility = 'public'")
 		.innerJoinAndSelect('note.user', 'user');
 
@@ -49,7 +50,7 @@ export async function injectFeatured(timeline: Note[], user?: User | null) {
 	// Pick random one
 	const featured = notes[Math.floor(Math.random() * notes.length)];
 
-	(featured as any)._featuredId_ = rndstr('a-z0-9', 8);
+	(featured as any)._featuredId_ = secureRndstr(8);
 
 	// Inject featured
 	timeline.splice(3, 0, featured);

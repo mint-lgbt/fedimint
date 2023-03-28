@@ -1,6 +1,6 @@
 <template>
 <MkContainer>
-	<template #header><i class="fas fa-chart-bar" style="margin-right: 0.5em;"></i>{{ $ts.activity }}</template>
+	<template #header><i class="fas fa-chart-simple" style="margin-right: 0.5em;"></i>{{ i18n.ts.activity }}</template>
 	<template #func>
 		<button class="_button" @click="showMenu">
 			<i class="fas fa-ellipsis-h"></i>
@@ -14,15 +14,14 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import MkContainer from '@/components/ui/container.vue';
 import MkChart from '@/components/chart.vue';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
 
 const props = withDefaults(defineProps<{
-	user: misskey.entities.User;
+	user: foundkey.entities.User;
 	limit?: number;
 }>(), {
 	limit: 50,
@@ -36,8 +35,8 @@ function showMenu(ev: MouseEvent) {
 		active: true,
 		action: () => {
 			chartSrc = 'per-user-notes';
-		}
-	}/*, {
+		},
+	},/*, {
 		text: i18n.ts.following,
 		action: () => {
 			chartSrc = 'per-user-following';

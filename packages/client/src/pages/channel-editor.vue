@@ -1,15 +1,15 @@
 <template>
 <MkStickyContainer>
-	<template #header><MkPageHeader :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader/></template>
 	<MkSpacer :content-max="700">
 		<div class="_formRoot">
-			<MkInput v-model="name" class="_formBlock">
+			<FormInput v-model="name" class="_formBlock">
 				<template #label>{{ i18n.ts.name }}</template>
-			</MkInput>
+			</FormInput>
 
-			<MkTextarea v-model="description" class="_formBlock">
+			<FormTextarea v-model="description" class="_formBlock">
 				<template #label>{{ i18n.ts.description }}</template>
-			</MkTextarea>
+			</FormTextarea>
 
 			<div class="banner">
 				<MkButton v-if="bannerId == null" @click="setBannerImage"><i class="fas fa-plus"></i> {{ i18n.ts._channel.setBanner }}</MkButton>
@@ -27,10 +27,10 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, inject, watch } from 'vue';
-import MkTextarea from '@/components/form/textarea.vue';
+import { computed, watch } from 'vue';
+import FormTextarea from '@/components/form/textarea.vue';
 import MkButton from '@/components/ui/button.vue';
-import MkInput from '@/components/form/input.vue';
+import FormInput from '@/components/form/input.vue';
 import { selectFile } from '@/scripts/select-file';
 import * as os from '@/os';
 import { useRouter } from '@/router';
@@ -59,7 +59,7 @@ watch(() => bannerId, async () => {
 	}
 });
 
-async function fetchChannel() {
+async function fetchChannel(): Promise<void> {
 	if (props.channelId == null) return;
 
 	channel = await os.api('channels/show', {
@@ -74,11 +74,11 @@ async function fetchChannel() {
 
 fetchChannel();
 
-function save() {
+function save(): void {
 	const params = {
-		name: name,
-		description: description,
-		bannerId: bannerId,
+		name,
+		description,
+		bannerId,
 	};
 
 	if (props.channelId) {
@@ -94,19 +94,15 @@ function save() {
 	}
 }
 
-function setBannerImage(evt) {
+function setBannerImage(evt): void {
 	selectFile(evt.currentTarget ?? evt.target, null).then(file => {
 		bannerId = file.id;
 	});
 }
 
-function removeBannerImage() {
+function removeBannerImage(): void {
 	bannerId = null;
 }
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata(computed(() => props.channelId ? {
 	title: i18n.ts._channel.edit,

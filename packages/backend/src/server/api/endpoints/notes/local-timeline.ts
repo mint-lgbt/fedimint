@@ -11,6 +11,7 @@ import { generateRepliesQuery } from '../../common/generate-replies-query.js';
 import { generateMutedNoteQuery } from '../../common/generate-muted-note-query.js';
 import { generateChannelQuery } from '../../common/generate-channel-query.js';
 import { generateBlockedUserQuery } from '../../common/generate-block-query.js';
+import { generateMutedRenotesQuery } from '../../common/generated-muted-renote-query.js';
 
 export const meta = {
 	tags: ['notes'],
@@ -25,13 +26,7 @@ export const meta = {
 		},
 	},
 
-	errors: {
-		ltlDisabled: {
-			message: 'Local timeline has been disabled.',
-			code: 'LTL_DISABLED',
-			id: '45a6eb02-7695-4393-b023-dd3be9aaaefd',
-		},
-	},
+	errors: ['TIMELINE_DISABLED'],
 } as const;
 
 export const paramDef = {
@@ -60,7 +55,7 @@ export default define(meta, paramDef, async (ps, user) => {
 	const m = await fetchMeta();
 	if (m.disableLocalTimeline) {
 		if (user == null || (!user.isAdmin && !user.isModerator)) {
-			throw new ApiError(meta.errors.ltlDisabled);
+			throw new ApiError('TIMELINE_DISABLED');
 		}
 	}
 
@@ -86,6 +81,7 @@ export default define(meta, paramDef, async (ps, user) => {
 	if (user) generateMutedUserQuery(query, user);
 	if (user) generateMutedNoteQuery(query, user);
 	if (user) generateBlockedUserQuery(query, user);
+	if (user) generateMutedRenotesQuery(query, user);
 
 	if (ps.withFiles) {
 		query.andWhere('note.fileIds != \'{}\'');
@@ -102,7 +98,7 @@ export default define(meta, paramDef, async (ps, user) => {
 
 		if (ps.excludeNsfw) {
 			query.andWhere('note.cw IS NULL');
-			query.andWhere('0 = (SELECT COUNT(*) FROM drive_file df WHERE df.id = ANY(note."fileIds") AND df."isSensitive" = TRUE)');
+			query.andWhere('0 = (SELECT COUNT(*) FROM drive_file df WHERE df.id = ANY(note."fileIds") AND df."isSensitive")');
 		}
 	}
 	//#endregion

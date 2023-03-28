@@ -10,19 +10,7 @@ export const meta = {
 
 	kind: 'write:account',
 
-	errors: {
-		noSuchClip: {
-			message: 'No such clip.',
-			code: 'NO_SUCH_CLIP',
-			id: 'b80525c6-97f7-49d7-a42d-ebccd49cfd52',
-		},
-
-		noSuchNote: {
-			message: 'No such note.',
-			code: 'NO_SUCH_NOTE',
-			id: 'aff017de-190e-434b-893e-33a9ff5049d8',
-		},
-	},
+	errors: ['NO_SUCH_CLIP', 'NO_SUCH_NOTE', 'NOT_CLIPPED'],
 } as const;
 
 export const paramDef = {
@@ -41,17 +29,17 @@ export default define(meta, paramDef, async (ps, user) => {
 		userId: user.id,
 	});
 
-	if (clip == null) {
-		throw new ApiError(meta.errors.noSuchClip);
-	}
+	if (clip == null) throw new ApiError('NO_SUCH_CLIP');
 
 	const note = await getNote(ps.noteId).catch(e => {
-		if (e.id === '9725d0ce-ba28-4dde-95a7-2cbb2c15de24') throw new ApiError(meta.errors.noSuchNote);
+		if (e.id === '9725d0ce-ba28-4dde-95a7-2cbb2c15de24') throw new ApiError('NO_SUCH_NOTE');
 		throw e;
 	});
 
-	await ClipNotes.delete({
+	const { affected } = await ClipNotes.delete({
 		noteId: note.id,
 		clipId: clip.id,
 	});
+
+	if (affected === 0) throw new ApiError('NOT_CLIPPED');
 });

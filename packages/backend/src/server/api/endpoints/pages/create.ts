@@ -23,18 +23,7 @@ export const meta = {
 		ref: 'Page',
 	},
 
-	errors: {
-		noSuchFile: {
-			message: 'No such file.',
-			code: 'NO_SUCH_FILE',
-			id: 'b7b97489-0f66-4b12-a5ff-b21bd63f6e1c',
-		},
-		nameAlreadyExists: {
-			message: 'Specified name already exists.',
-			code: 'NAME_ALREADY_EXISTS',
-			id: '4650348e-301c-499a-83c9-6aa988c66bc1',
-		},
-	},
+	errors: ['NO_SUCH_FILE', 'NAME_ALREADY_EXISTS'],
 } as const;
 
 export const paramDef = {
@@ -43,19 +32,13 @@ export const paramDef = {
 		title: { type: 'string' },
 		name: { type: 'string', minLength: 1 },
 		summary: { type: 'string', nullable: true },
-		content: { type: 'array', items: {
-			type: 'object', additionalProperties: true,
-		} },
-		variables: { type: 'array', items: {
-			type: 'object', additionalProperties: true,
-		} },
-		script: { type: 'string' },
+		text: { type: 'string', minLength: 1 },
 		eyeCatchingImageId: { type: 'string', format: 'misskey:id', nullable: true },
 		font: { type: 'string', enum: ['serif', 'sans-serif'], default: 'sans-serif' },
 		alignCenter: { type: 'boolean', default: false },
 		hideTitleWhenPinned: { type: 'boolean', default: false },
 	},
-	required: ['title', 'name', 'content', 'variables', 'script'],
+	required: ['title', 'name', 'text'],
 } as const;
 
 // eslint-disable-next-line import/no-default-export
@@ -67,9 +50,7 @@ export default define(meta, paramDef, async (ps, user) => {
 			userId: user.id,
 		});
 
-		if (eyeCatchingImage == null) {
-			throw new ApiError(meta.errors.noSuchFile);
-		}
+		if (eyeCatchingImage == null) throw new ApiError('NO_SUCH_FILE');
 	}
 
 	await Pages.findBy({
@@ -77,7 +58,7 @@ export default define(meta, paramDef, async (ps, user) => {
 		name: ps.name,
 	}).then(result => {
 		if (result.length > 0) {
-			throw new ApiError(meta.errors.nameAlreadyExists);
+			throw new ApiError('NAME_ALREADY_EXISTS');
 		}
 	});
 
@@ -88,9 +69,7 @@ export default define(meta, paramDef, async (ps, user) => {
 		title: ps.title,
 		name: ps.name,
 		summary: ps.summary,
-		content: ps.content,
-		variables: ps.variables,
-		script: ps.script,
+		text: ps.text,
 		eyeCatchingImageId: eyeCatchingImage ? eyeCatchingImage.id : null,
 		userId: user.id,
 		visibility: 'public',

@@ -1,15 +1,16 @@
 import Xev from 'xev';
-import { deliverQueue, inboxQueue } from '../queue/queues.js';
+import { deliverQueue, inboxQueue } from '@/queue/queues.js';
+import { SECOND } from '@/const.js';
 
 const ev = new Xev();
 
-const interval = 10000;
+const interval = 10 * SECOND;
 
 /**
  * Report queue stats regularly
  */
-export default function() {
-	const log = [] as any[];
+export function queueStats(): void {
+	const log: Record<string, Record<string, number>>[] = [];
 
 	ev.on('requestQueueStatsLog', x => {
 		ev.emit(`queueStatsLog:${x.id}`, log.slice(0, x.length || 50));
@@ -26,7 +27,7 @@ export default function() {
 		activeInboxJobs++;
 	});
 
-	async function tick() {
+	async function tick(): Promise<void> {
 		const deliverJobCounts = await deliverQueue.getJobCounts();
 		const inboxJobCounts = await inboxQueue.getJobCounts();
 

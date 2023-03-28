@@ -1,9 +1,9 @@
 // PIZZAX --- A lightweight store
 
 import { onUnmounted, Ref, ref, watch } from 'vue';
-import { $i } from './account';
-import { api } from './os';
-import { stream } from './stream';
+import { $i } from '@/account';
+import { api } from '@/os';
+import { stream } from '@/stream';
 
 type StateDef = Record<string, {
 	where: 'account' | 'device' | 'deviceAccount';
@@ -117,8 +117,8 @@ export class Storage<T extends StateDef> {
 				localStorage.setItem(this.keyForLocalStorage + '::cache::' + $i.id, JSON.stringify(cache));
 				api('i/registry/set', {
 					scope: ['client', this.key],
-					key: key,
-					value: value,
+					key,
+					value,
 				});
 				break;
 			}
@@ -130,7 +130,7 @@ export class Storage<T extends StateDef> {
 		this.set(key, [...currentState, value]);
 	}
 
-	public reset(key: keyof T) {
+	public reset(key: keyof T): void {
 		this.set(key, this.def[key].default);
 	}
 

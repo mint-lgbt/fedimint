@@ -33,22 +33,22 @@ function calc(src: Element) {
 }
 
 export default {
-	mounted(src, binding, vn) {
-		const resize = new ResizeObserver((entries, observer) => {
+	mounted(src, binding) {
+		const resize = new ResizeObserver(() => {
 			calc(src);
 		});
 		resize.observe(src);
 
-		mountings.set(src, { resize, fn: binding.value, });
+		mountings.set(src, { resize, fn: binding.value });
 		calc(src);
 	},
 
-	unmounted(src, binding, vn) {
+	unmounted(src) {
 		binding.value(0, 0);
 		const info = mountings.get(src);
 		if (!info) return;
 		info.resize.disconnect();
 		if (info.intersection) info.intersection.disconnect();
 		mountings.delete(src);
-	}
+	},
 } as Directive<Element, (w: number, h: number) => void>;

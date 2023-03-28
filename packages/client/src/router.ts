@@ -3,17 +3,16 @@ import { Router } from '@/nirax';
 import { $i, iAmModerator } from '@/account';
 import MkLoading from '@/pages/_loading_.vue';
 import MkError from '@/pages/_error_.vue';
-import { ui } from '@/config';
 
 const page = (loader: AsyncComponentLoader<any>) => defineAsyncComponent({
-	loader: loader,
+	loader,
 	loadingComponent: MkLoading,
 	errorComponent: MkError,
 });
 
 export const routes = [{
 	path: '/@:initUser/pages/:initPageName/view-source',
-	component: page(() => import('./pages/page-editor/page-editor.vue')),
+	component: page(() => import('./pages/page-editor.vue')),
 }, {
 	path: '/@:username/pages/:pageName',
 	component: page(() => import('./pages/page.vue')),
@@ -59,8 +58,8 @@ export const routes = [{
 	component: page(() => import('./pages/about.vue')),
 	hash: 'initialTab',
 }, {
-	path: '/about-misskey',
-	component: page(() => import('./pages/about-misskey.vue')),
+	path: '/about-foundkey',
+	component: page(() => import('./pages/about-foundkey.vue')),
 }, {
 	path: '/theme-editor',
 	component: page(() => import('./pages/theme-editor.vue')),
@@ -72,18 +71,8 @@ export const routes = [{
 	path: '/explore',
 	component: page(() => import('./pages/explore.vue')),
 }, {
-	path: '/federation',
-	component: page(() => import('./pages/federation.vue')),
-}, {
-	path: '/emojis',
-	component: page(() => import('./pages/emojis.vue')),
-}, {
 	path: '/search',
 	component: page(() => import('./pages/search.vue')),
-	query: {
-		q: 'query',
-		channel: 'channel',
-	},
 }, {
 	path: '/authorize-follow',
 	component: page(() => import('./pages/follow.vue')),
@@ -106,6 +95,9 @@ export const routes = [{
 	path: '/preview',
 	component: page(() => import('./pages/preview.vue')),
 }, {
+	path: '/auth',
+	component: page(() => import('./pages/auth.vue')),
+}, {
 	path: '/auth/:token',
 	component: page(() => import('./pages/auth.vue')),
 }, {
@@ -122,29 +114,15 @@ export const routes = [{
 	component: page(() => import('./pages/tag.vue')),
 }, {
 	path: '/pages/new',
-	component: page(() => import('./pages/page-editor/page-editor.vue')),
+	component: page(() => import('./pages/page-editor.vue')),
 	loginRequired: true,
 }, {
 	path: '/pages/edit/:initPageId',
-	component: page(() => import('./pages/page-editor/page-editor.vue')),
+	component: page(() => import('./pages/page-editor.vue')),
 	loginRequired: true,
 }, {
 	path: '/pages',
 	component: page(() => import('./pages/pages.vue')),
-}, {
-	path: '/gallery/:postId/edit',
-	component: page(() => import('./pages/gallery/edit.vue')),
-	loginRequired: true,
-}, {
-	path: '/gallery/new',
-	component: page(() => import('./pages/gallery/edit.vue')),
-	loginRequired: true,
-}, {
-	path: '/gallery/:postId',
-	component: page(() => import('./pages/gallery/post.vue')),
-}, {
-	path: '/gallery',
-	component: page(() => import('./pages/gallery/index.vue')),
 }, {
 	path: '/channels/:channelId/edit',
 	component: page(() => import('./pages/channel-editor.vue')),
@@ -168,17 +146,12 @@ export const routes = [{
 }, {
 	path: '/my/notifications',
 	component: page(() => import('./pages/notifications.vue')),
+	hash: 'initialTab',
 	loginRequired: true,
 }, {
 	path: '/my/favorites',
 	component: page(() => import('./pages/favorites.vue')),
 	loginRequired: true,
-}, {
-	path: '/my/messages',
-	component: page(() => import('./pages/messages.vue')),
-}, {
-	path: '/my/mentions',
-	component: page(() => import('./pages/mentions.vue')),
 }, {
 	name: 'messaging',
 	path: '/my/messaging',
@@ -191,6 +164,14 @@ export const routes = [{
 }, {
 	path: '/my/messaging/group/:groupId',
 	component: page(() => import('./pages/messaging/messaging-room.vue')),
+	loginRequired: true,
+}, {
+	path: '/my/groups/',
+	component: page(() => import('./pages/my-groups/index.vue')),
+	loginRequired: true,
+}, {
+	path: '/my/groups/:groupId',
+	component: page(() => import('./pages/my-groups/group.vue')),
 	loginRequired: true,
 }, {
 	path: '/my/drive/folder/:folder',

@@ -8,11 +8,21 @@ import { Users, Relays } from '@/models/index.js';
 import { genId } from '@/misc/gen-id.js';
 import { Cache } from '@/misc/cache.js';
 import { Relay } from '@/models/entities/relay.js';
+import { MINUTE } from '@/const.js';
 import { createSystemUser } from './create-system-user.js';
 
 const ACTOR_USERNAME = 'relay.actor' as const;
 
-const relaysCache = new Cache<Relay[]>(1000 * 60 * 10);
+/**
+ * There is only one cache key: null.
+ * A cache is only used here to have expiring storage.
+ */
+const relaysCache = new Cache<Relay[]>(
+	10 * MINUTE,
+	() => Relays.findBy({
+		status: 'accepted',
+	}),
+);
 
 export async function getRelayActor(): Promise<ILocalUser> {
 	const user = await Users.findOneBy({
@@ -26,7 +36,7 @@ export async function getRelayActor(): Promise<ILocalUser> {
 	return created as ILocalUser;
 }
 
-export async function addRelay(inbox: string) {
+export async function addRelay(inbox: string): Promise<Relay> {
 	const relay = await Relays.insert({
 		id: genId(),
 		inbox,
@@ -34,14 +44,14 @@ export async function addRelay(inbox: string) {
 	}).then(x => Relays.findOneByOrFail(x.identifiers[0]));
 
 	const relayActor = await getRelayActor();
-	const follow = await renderFollowRelay(relay, relayActor);
+	const follow = renderFollowRelay(relay, relayActor);
 	const activity = renderActivity(follow);
 	deliver(relayActor, activity, relay.inbox);
 
 	return relay;
 }
 
-export async function removeRelay(inbox: string) {
+export async function removeRelay(inbox: string): Promise<void> {
 	const relay = await Relays.findOneBy({
 		inbox,
 	});
@@ -59,12 +69,12 @@ export async function removeRelay(inbox: string) {
 	await Relays.delete(relay.id);
 }
 
-export async function listRelay() {
+export async function listRelay(): Promise<Relay[]> {
 	const relays = await Relays.find();
 	return relays;
 }
 
-export async function relayAccepted(id: string) {
+export async function relayAccepted(id: string): Promise<string> {
 	const result = await Relays.update(id, {
 		status: 'accepted',
 	});
@@ -72,7 +82,7 @@ export async function relayAccepted(id: string) {
 	return JSON.stringify(result);
 }
 
-export async function relayRejected(id: string) {
+export async function relayRejected(id: string): Promise<string> {
 	const result = await Relays.update(id, {
 		status: 'rejected',
 	});
@@ -80,17 +90,13 @@ export async function relayRejected(id: string) {
 	return JSON.stringify(result);
 }
 
-export async function deliverToRelays(user: { id: User['id']; host: null; }, activity: any) {
+export async function deliverToRelays(user: { id: User['id']; host: null; }, activity: any): Promise<void> {
 	if (activity == null) return;
 
-	const relays = await relaysCache.fetch(null, () => Relays.findBy({
-		status: 'accepted',
-	}));
-	if (relays.length === 0) return;
+	const relays = await relaysCache.fetch('');
+	if (relays == null || relays.length === 0) return;
 
-	// TODO
-	//const copy = structuredClone(activity);
-	const copy = JSON.parse(JSON.stringify(activity));
+	const copy = structuredClone(activity);
 	if (!copy.to) copy.to = ['https://www.w3.org/ns/activitystreams#Public'];
 
 	const signed = await attachLdSignature(copy, user);

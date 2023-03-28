@@ -2,7 +2,7 @@
 <MkPagination ref="pagingComponent" :pagination="pagination">
 	<template #empty>
 		<div class="_fullinfo">
-			<img src="https://xn--931a.moe/assets/info.jpg" class="_ghost"/>
+			<img :src="instance.images.info" class="_ghost"/>
 			<div>{{ i18n.ts.noNotes }}</div>
 		</div>
 	</template>
@@ -10,7 +10,7 @@
 	<template #default="{ items: notes }">
 		<div class="giivymft" :class="{ noGap }">
 			<XList ref="notes" v-slot="{ item: note }" :items="notes" :direction="pagination.reversed ? 'up' : 'down'" :reversed="pagination.reversed" :no-gap="noGap" class="notes">
-				<XNote :key="note._featuredId_ || note._prId_ || note.id" class="qtqtichx" :note="note"/>
+				<XNote :key="note._featuredId_ || note.id" class="qtqtichx" :note="note"/>
 			</XList>
 		</div>
 	</template>
@@ -23,8 +23,9 @@ import XNote from '@/components/note.vue';
 import XList from '@/components/date-separated-list.vue';
 import MkPagination, { Paging } from '@/components/ui/pagination.vue';
 import { i18n } from '@/i18n';
+import { instance } from '@/instance';
 
-const props = defineProps<{
+defineProps<{
 	pagination: Paging;
 	noGap?: boolean;
 }>();

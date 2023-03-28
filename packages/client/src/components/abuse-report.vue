@@ -21,7 +21,7 @@
 		<div v-if="report.urls.length > 0">
 			{{ i18n.ts.notes }}:
 			<ul>
-				<li v-for="url in report.urls"><MkUrl :url="url"/></li>
+				<li v-for="url in report.urls" :key="url"><MkUrl :url="url"/></li>
 			</ul>
 		</div>
 		<hr/>
@@ -32,10 +32,10 @@
 		</div>
 		<div><MkTime :time="report.createdAt"/></div>
 		<div class="action">
-			<MkSwitch v-model="forward" :disabled="report.targetUser.host == null || report.resolved">
+			<FormSwitch v-model="forward" :disabled="report.targetUser.host == null || report.resolved">
 				{{ i18n.ts.forwardReport }}
 				<template #caption>{{ i18n.ts.forwardReportIsAnonymous }}</template>
-			</MkSwitch>
+			</FormSwitch>
 			<MkButton v-if="!report.resolved" class="_formBlock" style="margin-bottom: 0;" primary @click="resolve">{{ i18n.ts.abuseMarkAsResolved }}</MkButton>
 		</div>
 	</div>
@@ -44,15 +44,14 @@
 
 <script lang="ts" setup>
 import MkButton from '@/components/ui/button.vue';
-import MkSwitch from '@/components/form/switch.vue';
+import FormSwitch from '@/components/form/switch.vue';
 import MkKeyValue from '@/components/key-value.vue';
 import MkUrl from '@/components/global/url.vue';
-import { acct, userPage } from '@/filters/user';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
 
 const props = defineProps<{
-	report: any;
+	report: Record<string, any>;
 }>();
 
 const emit = defineEmits<{
@@ -61,9 +60,9 @@ const emit = defineEmits<{
 
 let forward = $ref(props.report.forwarded);
 
-function resolve() {
+function resolve(): void {
 	os.apiWithDialog('admin/resolve-abuse-user-report', {
-		forward: forward,
+		forward,
 		reportId: props.report.id,
 	}).then(() => {
 		emit('resolved', props.report.id);

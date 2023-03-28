@@ -1,3 +1,4 @@
+import { db } from '@/db/postgre.js';
 import { publishMainStream, publishUserEvent } from '@/services/stream.js';
 import { renderActivity } from '@/remote/activitypub/renderer/index.js';
 import renderFollow from '@/remote/activitypub/renderer/follow.js';
@@ -20,11 +21,15 @@ export default async function(follower: { id: User['id']; host: User['host']; ur
 	});
 
 	if (following == null) {
-		logger.warn('フォロー解除がリクエストされましたがフォローしていませんでした');
+		logger.warn('unfollow requested, but did not follow');
 		return;
 	}
 
-	await Followings.delete(following.id);
+	await Promise.all([
+		Followings.delete(following.id),
+		// delete notifications that the ex-follower can now no longer see
+		db.query('DELETE FROM "notification" WHERE "noteId" IS NOT NULL AND "notifieeId" = $1 AND NOT note_visible("noteId", "notifieeId")', [follower.id]),
+	]);
 
 	decrementFollowing(follower, followee);
 

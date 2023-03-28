@@ -2,6 +2,7 @@ import { UserListJoinings, UserLists } from '@/models/index.js';
 import { User } from '@/models/entities/user.js';
 import { isUserRelated } from '@/misc/is-user-related.js';
 import { Packed } from '@/misc/schema.js';
+import { Note } from '@/models/entities/note.js';
 import Channel from '../channel.js';
 
 export default class extends Channel {
@@ -11,22 +12,23 @@ export default class extends Channel {
 	private listId: string;
 	public listUsers: User['id'][] = [];
 	private listUsersClock: NodeJS.Timer;
+	private onNote: (note: Note) => Promise<void>;
 
 	constructor(id: string, connection: Channel['connection']) {
 		super(id, connection);
 		this.updateListUsers = this.updateListUsers.bind(this);
-		this.onNote = this.withPackedNote(this.onNote.bind(this));
+		this.onNote = this.withPackedNote(this.onPackedNote.bind(this));
 	}
 
 	public async init(params: any) {
 		this.listId = params.listId as string;
 
 		// Check existence and owner
-		const list = await UserLists.findOneBy({
+		const exists = await UserLists.countBy({
 			id: this.listId,
 			userId: this.user!.id,
 		});
-		if (!list) return;
+		if (!exists) return;
 
 		// Subscribe stream
 		this.subscriber.on(`userListStream:${this.listId}`, this.send);
@@ -48,13 +50,14 @@ export default class extends Channel {
 		this.listUsers = users.map(x => x.userId);
 	}
 
-	private async onNote(note: Packed<'Note'>) {
+	private async onPackedNote(note: Packed<'Note'>): Promise<void> {
 		if (!this.listUsers.includes(note.userId)) return;
 
 		// 流れてきたNoteがミュートしているユーザーが関わるものだったら無視する
 		if (isUserRelated(note, this.muting)) return;
 		// 流れてきたNoteがブロックされているユーザーが関わるものだったら無視する
 		if (isUserRelated(note, this.blocking)) return;
+		if (note.renote && this.renoteMuting.has(note.userId)) return;
 
 		this.send('note', note);
 	}

@@ -17,11 +17,12 @@ type Action = {
 	allowRepeat: boolean;
 };
 
-const parseKeymap = (keymap: Keymap) => Object.entries(keymap).map(([patterns, callback]): Action => {
+const parseKeymap = (keymap: Keymap): Action[] => Object.entries(keymap).map(([_patterns, callback]): Action => {
+	let patterns = _patterns;
 	const result = {
 		patterns: [],
 		callback,
-		allowRepeat: true
+		allowRepeat: true,
 	} as Action;
 
 	if (patterns.match(/^\(.*\)$/) !== null) {
@@ -34,7 +35,7 @@ const parseKeymap = (keymap: Keymap) => Object.entries(keymap).map(([patterns, c
 			which: [],
 			ctrl: false,
 			alt: false,
-			shift: false
+			shift: false,
 		} as Pattern;
 
 		const keys = part.trim().split('+').map(x => x.trim().toLowerCase());
@@ -61,16 +62,16 @@ function match(ev: KeyboardEvent, patterns: Action['patterns']): boolean {
 		pattern.ctrl === ev.ctrlKey &&
 		pattern.shift === ev.shiftKey &&
 		pattern.alt === ev.altKey &&
-		!ev.metaKey
+		!ev.metaKey,
 	);
 }
 
-export const makeHotkey = (keymap: Keymap) => {
+export const makeHotkey = (keymap: Keymap): (ev: KeyboardEvent) => void => {
 	const actions = parseKeymap(keymap);
 
 	return (ev: KeyboardEvent) => {
 		if (document.activeElement) {
-			if (ignoreElemens.some(el => document.activeElement!.matches(el))) return;
+			if (ignoreElemens.some(el => document.activeElement?.matches(el))) return;
 			if (document.activeElement.attributes['contenteditable']) return;
 		}
 

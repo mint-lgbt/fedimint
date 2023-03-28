@@ -9,7 +9,6 @@ pipeline:
   install:
     when:
       event:
-        - push
         - pull_request
     image: node:18.6.0
     commands:
@@ -17,8 +16,7 @@ pipeline:
   lint:
     when:
       event:
-        - push
         - pull_request
     image: node:18.6.0
     commands:
-      - yarn --cwd ./packages/client lint
+      - yarn workspace client run lint

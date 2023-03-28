@@ -1,13 +1,13 @@
 import { In } from 'typeorm';
+import { noteVisibilities, entities } from 'foundkey-js';
 import create from '@/services/note/create.js';
 import { User } from '@/models/entities/user.js';
 import { Users, DriveFiles, Notes, Channels, Blockings } from '@/models/index.js';
 import { DriveFile } from '@/models/entities/drive-file.js';
 import { Note } from '@/models/entities/note.js';
 import { Channel } from '@/models/entities/channel.js';
-import { MAX_NOTE_TEXT_LENGTH, HOUR } from '@/const.js';
-import { isPureRenote } from '@/misc/renote.js';
-import { noteVisibilities } from '../../../../types.js';
+import { HOUR } from '@/const.js';
+import config from '@/config/index.js';
 import { ApiError } from '../../error.js';
 import define from '../../define.js';
 import { getNote } from '../../common/getters.js';
@@ -36,55 +36,12 @@ export const meta = {
 		},
 	},
 
-	errors: {
-		noSuchRenoteTarget: {
-			message: 'No such renote target.',
-			code: 'NO_SUCH_RENOTE_TARGET',
-			id: 'b5c90186-4ab0-49c8-9bba-a1f76c282ba4',
-		},
-
-		cannotReRenote: {
-			message: 'You can not Renote a pure Renote.',
-			code: 'CANNOT_RENOTE_TO_A_PURE_RENOTE',
-			id: 'fd4cc33e-2a37-48dd-99cc-9b806eb2031a',
-		},
-
-		noSuchReplyTarget: {
-			message: 'No such reply target.',
-			code: 'NO_SUCH_REPLY_TARGET',
-			id: '749ee0f6-d3da-459a-bf02-282e2da4292c',
-		},
-
-		cannotReplyToPureRenote: {
-			message: 'You can not reply to a pure Renote.',
-			code: 'CANNOT_REPLY_TO_A_PURE_RENOTE',
-			id: '3ac74a84-8fd5-4bb0-870f-01804f82ce15',
-		},
-
-		cannotCreateAlreadyExpiredPoll: {
-			message: 'Poll is already expired.',
-			code: 'CANNOT_CREATE_ALREADY_EXPIRED_POLL',
-			id: '04da457d-b083-4055-9082-955525eda5a5',
-		},
-
-		noSuchChannel: {
-			message: 'No such channel.',
-			code: 'NO_SUCH_CHANNEL',
-			id: 'b1653923-5453-4edc-b786-7c4f39bb0bbb',
-		},
-
-		youHaveBeenBlocked: {
-			message: 'You have been blocked by this user.',
-			code: 'YOU_HAVE_BEEN_BLOCKED',
-			id: 'b390d7e1-8a5e-46ed-b625-06271cafd3d3',
-		},
-
-		lessRestrictiveVisibility: {
-			message: 'The visibility cannot be less restrictive than the parent note.',
-			code: 'LESS_RESTRICTIVE_VISIBILITY',
-			id: 'c8ab7a7a-8852-41e2-8b24-079bbaceb585',
-		},
+	v2: {
+		method: 'post',
+		alias: 'notes',
 	},
+
+	errors: ['NO_SUCH_NOTE', 'PURE_RENOTE', 'EXPIRED_POLL', 'NO_SUCH_CHANNEL', 'BLOCKED', 'LESS_RESTRICTIVE_VISIBILITY'],
 } as const;
 
 export const paramDef = {
@@ -99,7 +56,7 @@ export const paramDef = {
 		visibleUserIds: { type: 'array', uniqueItems: true, items: {
 			type: 'string', format: 'misskey:id',
 		} },
-		text: { type: 'string', maxLength: MAX_NOTE_TEXT_LENGTH, nullable: true },
+		text: { type: 'string', maxLength: config.maxNoteTextLength, nullable: true },
 		cw: { type: 'string', nullable: true, maxLength: 100 },
 		localOnly: { type: 'boolean', default: false },
 		noExtractMentions: { type: 'boolean', default: false },
@@ -146,7 +103,7 @@ export const paramDef = {
 		{
 			// (re)note with text, files and poll are optional
 			properties: {
-				text: { type: 'string', minLength: 1, maxLength: MAX_NOTE_TEXT_LENGTH, nullable: false },
+				text: { type: 'string', minLength: 1, maxLength: config.maxNoteTextLength, nullable: false },
 			},
 			required: ['text'],
 		},
@@ -198,28 +155,24 @@ export default define(meta, paramDef, async (ps, user) => {
 	if (ps.renoteId != null) {
 		// Fetch renote to note
 		renote = await getNote(ps.renoteId, user).catch(e => {
-			if (e.id === '9725d0ce-ba28-4dde-95a7-2cbb2c15de24') throw new ApiError(meta.errors.noSuchRenoteTarget);
+			if (e.id === '9725d0ce-ba28-4dde-95a7-2cbb2c15de24') throw new ApiError('NO_SUCH_NOTE', 'Note to be renoted not found.');
 			throw e;
 		});
 
-		if (isPureRenote(renote)) {
-			throw new ApiError(meta.errors.cannotReRenote);
-		}
+		if (entities.isPureRenote(renote)) throw new ApiError('PURE_RENOTE', 'Cannot renote a pure renote.');
 
 		// check that the visibility is not less restrictive
 		if (noteVisibilities.indexOf(renote.visibility) > noteVisibilities.indexOf(ps.visibility)) {
-			throw new ApiError(meta.errors.lessRestrictiveVisibility);
+			throw new ApiError('LESS_RESTRICTIVE_VISIBILITY', `The renote has visibility ${renote.visibility}.`);
 		}
 
 		// Check blocking
 		if (renote.userId !== user.id) {
-			const block = await Blockings.findOneBy({
+			const blocked = await Blockings.countBy({
 				blockerId: renote.userId,
 				blockeeId: user.id,
 			});
-			if (block) {
-				throw new ApiError(meta.errors.youHaveBeenBlocked);
-			}
+			if (blocked) throw new ApiError('BLOCKED', 'Blocked by author of note to be renoted.');
 		}
 	}
 
@@ -227,35 +180,31 @@ export default define(meta, paramDef, async (ps, user) => {
 	if (ps.replyId != null) {
 		// Fetch reply
 		reply = await getNote(ps.replyId, user).catch(e => {
-			if (e.id === '9725d0ce-ba28-4dde-95a7-2cbb2c15de24') throw new ApiError(meta.errors.noSuchReplyTarget);
+			if (e.id === '9725d0ce-ba28-4dde-95a7-2cbb2c15de24') throw new ApiError('NO_SUCH_NOTE', 'Replied to note not found.');
 			throw e;
 		});
 
-		if (isPureRenote(reply)) {
-			throw new ApiError(meta.errors.cannotReplyToPureRenote);
-		}
+		if (entities.isPureRenote(reply)) throw new ApiError('PURE_RENOTE', 'Cannot reply to a pure renote.');
 
 		// check that the visibility is not less restrictive
 		if (noteVisibilities.indexOf(reply.visibility) > noteVisibilities.indexOf(ps.visibility)) {
-			throw new ApiError(meta.errors.lessRestrictiveVisibility);
+			throw new ApiError('LESS_RESTRICTIVE_VISIBILITY', `The replied to note has visibility ${reply.visibility}.`);
 		}
 
 		// Check blocking
 		if (reply.userId !== user.id) {
-			const block = await Blockings.findOneBy({
+			const blocked = await Blockings.countBy({
 				blockerId: reply.userId,
 				blockeeId: user.id,
 			});
-			if (block) {
-				throw new ApiError(meta.errors.youHaveBeenBlocked);
-			}
+			if (blocked) throw new ApiError('BLOCKED', 'Blocked by author of replied to note.');
 		}
 	}
 
 	if (ps.poll) {
 		if (typeof ps.poll.expiresAt === 'number') {
 			if (ps.poll.expiresAt < Date.now()) {
-				throw new ApiError(meta.errors.cannotCreateAlreadyExpiredPoll);
+				throw new ApiError('EXPIRED_POLL');
 			}
 		} else if (typeof ps.poll.expiredAfter === 'number') {
 			ps.poll.expiresAt = Date.now() + ps.poll.expiredAfter;
@@ -266,9 +215,7 @@ export default define(meta, paramDef, async (ps, user) => {
 	if (ps.channelId != null) {
 		channel = await Channels.findOneBy({ id: ps.channelId });
 
-		if (channel == null) {
-			throw new ApiError(meta.errors.noSuchChannel);
-		}
+		if (channel == null) throw new ApiError('NO_SUCH_CHANNEL');
 	}
 
 	// 投稿を作成

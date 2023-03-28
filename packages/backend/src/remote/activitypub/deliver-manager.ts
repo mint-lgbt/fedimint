@@ -1,11 +1,15 @@
-import { IsNull, Not } from 'typeorm';
 import { ILocalUser, IRemoteUser, User } from '@/models/entities/user.js';
 import { Users, Followings } from '@/models/index.js';
 import { deliver } from '@/queue/index.js';
+import { skippedInstances } from '@/misc/skipped-instances.js';
 
 //#region types
 interface IRecipe {
 	type: string;
+}
+
+interface IEveryoneRecipe extends IRecipe {
+	type: 'Everyone';
 }
 
 interface IFollowersRecipe extends IRecipe {
@@ -17,6 +21,9 @@ interface IDirectRecipe extends IRecipe {
 	to: IRemoteUser;
 }
 
+const isEveryone = (recipe: any): recipe is IEveryoneRecipe =>
+	recipe.type === 'Everyone';
+
 const isFollowers = (recipe: any): recipe is IFollowersRecipe =>
 	recipe.type === 'Followers';
 
@@ -24,7 +31,7 @@ const isDirect = (recipe: any): recipe is IDirectRecipe =>
 	recipe.type === 'Direct';
 //#endregion
 
-export default class DeliverManager {
+export class DeliverManager {
 	private actor: { id: User['id']; host: null; };
 	private activity: any;
 	private recipes: IRecipe[] = [];
@@ -64,6 +71,13 @@ export default class DeliverManager {
 	}
 
 	/**
+	 * Add recipe to send this activity to all known sharedInboxes
+	 */
+	public addEveryone() {
+		this.addRecipe({ type: 'Everyone' } as IEveryoneRecipe);
+	}
+
+	/**
 	 * Add recipe
 	 * @param recipe Recipe
 	 */
@@ -82,31 +96,40 @@ export default class DeliverManager {
 		/*
 		build inbox list
 
-		Process follower recipes first to avoid duplication when processing
-		direct recipes later.
+		Processing order matters to avoid duplication.
 		*/
+
+		if (this.recipes.some(r => isEveryone(r))) {
+			// deliver to all of known network
+			const sharedInboxes = await Users.createQueryBuilder('users')
+				.select('users.sharedInbox', 'sharedInbox')
+				// so we don't have to make our inboxes Set work as hard
+				.distinct(true)
+				// can't deliver to unknown shared inbox
+				.where('users.sharedInbox IS NOT NULL')
+				// don't deliver to ourselves
+				.andWhere('users.host IS NOT NULL')
+				.getRawMany();
+
+			for (const inbox of sharedInboxes) {
+				inboxes.add(inbox.sharedInbox);
+			}
+		}
+
 		if (this.recipes.some(r => isFollowers(r))) {
 			// followers deliver
-			// TODO: SELECT DISTINCT ON ("followerSharedInbox") "followerSharedInbox" みたいな問い合わせにすればよりパフォーマンス向上できそう
-			// ただ、sharedInboxがnullなリモートユーザーも稀におり、その対応ができなさそう？
-			const followers = await Followings.find({
-				where: {
-					followeeId: this.actor.id,
-					followerHost: Not(IsNull()),
-				},
-				select: {
-					followerSharedInbox: true,
-					followerInbox: true,
-				},
-			}) as {
-				followerSharedInbox: string | null;
-				followerInbox: string;
-			}[];
+			const followers = await Followings.createQueryBuilder('followings')
+				// return either the shared inbox (if available) or the individual inbox
+				.select('COALESCE(followings.followerSharedInbox, followings.followerInbox)', 'inbox')
+				// so we don't have to make our inboxes Set work as hard
+				.distinct(true)
+				// ...for the specific actors followers
+				.where('followings.followeeId = :actorId', { actorId: this.actor.id })
+				// don't deliver to ourselves
+				.andWhere('followings.followerHost IS NOT NULL')
+				.getRawMany();
 
-			for (const following of followers) {
-				const inbox = following.followerSharedInbox || following.followerInbox;
-				inboxes.add(inbox);
-			}
+			followers.forEach(({ inbox }) => inboxes.add(inbox));
 		}
 
 		this.recipes.filter((recipe): recipe is IDirectRecipe =>
@@ -119,8 +142,19 @@ export default class DeliverManager {
 		)
 		.forEach(recipe => inboxes.add(recipe.to.inbox!));
 
+		const instancesToSkip = await skippedInstances(
+			// get (unique) list of hosts
+			Array.from(new Set(
+				Array.from(inboxes)
+				.map(inbox => new URL(inbox).host),
+			)),
+		);
+
 		// deliver
 		for (const inbox of inboxes) {
+			// skip instances as indicated
+			if (instancesToSkip.includes(new URL(inbox).host)) continue;
+
 			deliver(this.actor, this.activity, inbox);
 		}
 	}

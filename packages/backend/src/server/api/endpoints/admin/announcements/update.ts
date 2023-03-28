@@ -8,13 +8,7 @@ export const meta = {
 	requireCredential: true,
 	requireModerator: true,
 
-	errors: {
-		noSuchAnnouncement: {
-			message: 'No such announcement.',
-			code: 'NO_SUCH_ANNOUNCEMENT',
-			id: 'd3aae5a7-6372-4cb4-b61c-f511ffc2d7cc',
-		},
-	},
+	errors: ['NO_SUCH_ANNOUNCEMENT'],
 } as const;
 
 export const paramDef = {
@@ -29,10 +23,10 @@ export const paramDef = {
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, paramDef, async (ps, me) => {
+export default define(meta, paramDef, async (ps) => {
 	const announcement = await Announcements.findOneBy({ id: ps.id });
 
-	if (announcement == null) throw new ApiError(meta.errors.noSuchAnnouncement);
+	if (announcement == null) throw new ApiError('NO_SUCH_ANNOUNCEMENT');
 
 	await Announcements.update(announcement.id, {
 		updatedAt: new Date(),

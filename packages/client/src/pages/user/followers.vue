@@ -1,6 +1,6 @@
 <template>
 <MkStickyContainer>
-	<template #header><MkPageHeader :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader/></template>
 	<MkSpacer :content-max="1000">
 		<transition name="fade" mode="out-in">
 			<div v-if="user">
@@ -15,8 +15,8 @@
 
 <script lang="ts" setup>
 import { defineAsyncComponent, computed, inject, onMounted, onUnmounted, watch } from 'vue';
-import * as Acct from 'misskey-js/built/acct';
-import * as misskey from 'misskey-js';
+import * as Acct from 'foundkey-js/built/acct';
+import * as foundkey from 'foundkey-js';
 import XFollowList from './follow-list.vue';
 import * as os from '@/os';
 import { definePageMetadata } from '@/scripts/page-metadata';
@@ -27,7 +27,7 @@ const props = withDefaults(defineProps<{
 }>(), {
 });
 
-let user = $ref<null | misskey.entities.UserDetailed>(null);
+let user = $ref<null | foundkey.entities.UserDetailed>(null);
 let error = $ref(null);
 
 function fetchUser(): void {
@@ -43,10 +43,6 @@ function fetchUser(): void {
 watch(() => props.acct, fetchUser, {
 	immediate: true,
 });
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata(computed(() => user ? {
 	icon: 'fas fa-user',

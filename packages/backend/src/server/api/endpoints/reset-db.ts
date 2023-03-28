@@ -1,4 +1,5 @@
 import { resetDb } from '@/db/postgre.js';
+import { ApiError } from '@/server/api/error.js';
 import define from '../define.js';
 
 export const meta = {
@@ -7,10 +8,6 @@ export const meta = {
 	requireCredential: false,
 
 	description: 'Only available when running with <code>NODE_ENV=testing</code>. Reset the database and flush Redis.',
-
-	errors: {
-
-	},
 } as const;
 
 export const paramDef = {
@@ -20,8 +17,8 @@ export const paramDef = {
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, paramDef, async (ps, user) => {
-	if (process.env.NODE_ENV !== 'test') throw new Error('NODE_ENV is not a test');
+export default define(meta, paramDef, async () => {
+	if (process.env.NODE_ENV !== 'test') throw new ApiError('ACCESS_DENIED');
 
 	await resetDb();
 

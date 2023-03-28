@@ -8,12 +8,12 @@
 
 <script lang="ts" setup>
 import { computed } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import MkPagePreview from '@/components/page-preview.vue';
 import MkPagination from '@/components/ui/pagination.vue';
 
 const props = defineProps<{
-	user: misskey.entities.User;
+	user: foundkey.entities.User;
 }>();
 
 const pagination = {

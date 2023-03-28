@@ -1,21 +1,16 @@
 import post from '@/services/note/create.js';
 import { CacheableRemoteUser } from '@/models/entities/user.js';
 import { extractDbHost } from '@/misc/convert-host.js';
-import { fetchMeta } from '@/misc/fetch-meta.js';
 import { getApLock } from '@/misc/app-lock.js';
 import { StatusError } from '@/misc/fetch.js';
 import { Notes } from '@/models/index.js';
-import { parseAudience } from '../../audience.js';
-import { apLogger } from '../../logger.js';
-import { fetchNote, resolveNote } from '../../models/note.js';
-import Resolver from '../../resolver.js';
-import { IAnnounce, getApId } from '../../type.js';
+import { parseAudience } from '@/remote/activitypub/audience.js';
+import { apLogger } from '@/remote/activitypub/logger.js';
+import { fetchNote, resolveNote } from '@/remote/activitypub/models/note.js';
+import { Resolver } from '@/remote/activitypub/resolver.js';
+import { IAnnounce, getApId } from '@/remote/activitypub/type.js';
+import { shouldBlockInstance } from '@/misc/should-block-instance.js';
 
-const logger = apLogger;
-
-/**
- * アナウンスアクティビティを捌きます
- */
 export default async function(resolver: Resolver, actor: CacheableRemoteUser, activity: IAnnounce, targetUri: string): Promise<void> {
 	const uri = getApId(activity);
 
@@ -23,39 +18,38 @@ export default async function(resolver: Resolver, actor: CacheableRemoteUser, ac
 		return;
 	}
 
-	// アナウンス先をブロックしてたら中断
-	const meta = await fetchMeta();
-	if (meta.blockedHosts.includes(extractDbHost(uri))) return;
+	// Cancel if the announced from host is blocked.
+	if (await shouldBlockInstance(extractDbHost(uri))) return;
 
 	const unlock = await getApLock(uri);
 
 	try {
-		// 既に同じURIを持つものが登録されていないかチェック
+		// Check if this has already been announced.
 		const exist = await fetchNote(uri);
 		if (exist) {
 			return;
 		}
 
-		// Announce対象をresolve
+		// resolve the announce target
 		let renote;
 		try {
-			renote = await resolveNote(targetUri);
+			renote = await resolveNote(targetUri, resolver);
 		} catch (e) {
-			// 対象が4xxならスキップ
+			// skip if the target returns a HTTP client error
 			if (e instanceof StatusError) {
 				if (e.isClientError) {
-					logger.warn(`Ignored announce target ${targetUri} - ${e.statusCode}`);
+					apLogger.warn(`Ignored announce target ${targetUri} - ${e.statusCode}`);
 					return;
 				}
 
-				logger.warn(`Error in announce target ${targetUri} - ${e.statusCode || e}`);
+				apLogger.warn(`Error in announce target ${targetUri} - ${e.statusCode || e}`);
 			}
 			throw e;
 		}
 
 		if (!await Notes.isVisibleForMe(renote, actor.id)) return 'skip: invalid actor for this activity';
 
-		logger.info(`Creating the (Re)Note: ${uri}`);
+		apLogger.info(`Creating the (Re)Note: ${uri}`);
 
 		const activityAudience = await parseAudience(actor, activity.to, activity.cc);
 

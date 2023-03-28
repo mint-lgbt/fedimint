@@ -1,5 +1,6 @@
 <template>
-<div class="drylbebk"
+<div
+	class="drylbebk"
 	:class="{ draghover }"
 	@click="onClick"
 	@dragover.prevent.stop="onDragover"
@@ -8,41 +9,32 @@
 	@drop.stop="onDrop"
 >
 	<i v-if="folder == null" class="fas fa-cloud"></i>
-	<span>{{ folder == null ? i18n.ts.drive : folder.name }}</span>
+	<span>{{ folder?.name ?? i18n.ts.drive }}</span>
 </div>
 </template>
 
 <script lang="ts" setup>
 import { ref } from 'vue';
-import * as Misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
 
 const props = defineProps<{
-	folder?: Misskey.entities.DriveFolder;
-	parentFolder: Misskey.entities.DriveFolder | null;
+	folder?: foundkey.entities.DriveFolder;
+	parentFolder: foundkey.entities.DriveFolder | null;
 }>();
 
 const emit = defineEmits<{
-	(ev: 'move', v?: Misskey.entities.DriveFolder): void;
-	(ev: 'upload', file: File, folder?: Misskey.entities.DriveFolder | null): void;
-	(ev: 'removeFile', v: Misskey.entities.DriveFile['id']): void;
-	(ev: 'removeFolder', v: Misskey.entities.DriveFolder['id']): void;
+	(ev: 'move', v?: foundkey.entities.DriveFolder): void;
+	(ev: 'upload', file: File, folder?: foundkey.entities.DriveFolder | null): void;
+	(ev: 'removeFile', v: foundkey.entities.DriveFile['id']): void;
+	(ev: 'removeFolder', v: foundkey.entities.DriveFolder['id']): void;
 }>();
 
-const hover = ref(false);
 const draghover = ref(false);
 
 function onClick() {
 	emit('move', props.folder);
-}
-
-function onMouseover() {
-	hover.value = true;
-}
-
-function onMouseout() {
-	hover.value = false;
 }
 
 function onDragover(ev: DragEvent) {
@@ -58,7 +50,22 @@ function onDragover(ev: DragEvent) {
 	const isDriveFolder = ev.dataTransfer.types[0] === _DATA_TRANSFER_DRIVE_FOLDER_;
 
 	if (isFile || isDriveFile || isDriveFolder) {
-		ev.dataTransfer.dropEffect = ev.dataTransfer.effectAllowed === 'all' ? 'copy' : 'move';
+		switch (ev.dataTransfer.effectAllowed) {
+			case 'all':
+			case 'uninitialized':
+			case 'copy':
+			case 'copyLink':
+			case 'copyMove':
+				ev.dataTransfer.dropEffect = 'copy';
+				break;
+			case 'linkMove':
+			case 'move':
+				ev.dataTransfer.dropEffect = 'move';
+				break;
+			default:
+				ev.dataTransfer.dropEffect = 'none';
+				break;
+		}
 	} else {
 		ev.dataTransfer.dropEffect = 'none';
 	}
@@ -94,7 +101,7 @@ function onDrop(ev: DragEvent) {
 		emit('removeFile', file.id);
 		os.api('drive/files/update', {
 			fileId: file.id,
-			folderId: props.folder ? props.folder.id : null
+			folderId: props.folder ? props.folder.id : null,
 		});
 	}
 	//#endregion
@@ -108,7 +115,7 @@ function onDrop(ev: DragEvent) {
 		emit('removeFolder', folder.id);
 		os.api('drive/folders/update', {
 			folderId: folder.id,
-			parentId: props.folder ? props.folder.id : null
+			parentId: props.folder ? props.folder.id : null,
 		});
 	}
 	//#endregion

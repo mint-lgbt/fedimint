@@ -1,7 +1,12 @@
 import config from '@/config/index.js';
+import { kinds } from '@/misc/api-permissions.js';
+import { I18n } from '@/misc/i18n.js';
+import { errors as errorDefinitions } from '../error.js';
 import endpoints from '../endpoints.js';
-import { errors as basicErrors } from './errors.js';
 import { schemas, convertSchemaToOpenApiSchema } from './schemas.js';
+import { httpCodes } from './http-codes.js';
+
+const i18n = new I18n('en-US');
 
 export function genOpenapiSpec() {
 	const spec = {
@@ -9,7 +14,7 @@ export function genOpenapiSpec() {
 
 		info: {
 			version: 'v1',
-			title: 'Misskey API',
+			title: 'FoundKey API',
 			'x-logo': { url: '/static-assets/api-doc.png' },
 		},
 
@@ -33,35 +38,109 @@ export function genOpenapiSpec() {
 					in: 'body',
 					name: 'i',
 				},
-				// TODO: change this to oauth2 when the remaining oauth stuff is set up
-				Bearer: {
-					type: 'http',
-					scheme: 'bearer',
-				}
+				OAuth: {
+					type: 'oauth2',
+					flows: {
+						authorizationCode: {
+							authorizationUrl: `${config.url}/auth`,
+							tokenUrl: `${config.apiUrl}/auth/session/oauth`,
+							scopes: kinds.reduce((acc, kind) => {
+								acc[kind] = i18n.ts['_permissions'][kind];
+								return acc;
+							}, {}),
+						},
+					},
+				},
 			},
 		},
 	};
 
 	for (const endpoint of endpoints.filter(ep => !ep.meta.secure)) {
-		const errors = {} as any;
+		// generate possible responses, first starting with errors
+		const responses = [
+			// general error codes that can always happen
+			'INVALID_PARAM',
+			'INTERNAL_ERROR',
+			// error codes that happen only if authentication is required
+			...(!endpoint.meta.requireCredential ? [] : [
+				'ACCESS_DENIED',
+				'AUTHENTICATION_REQUIRED',
+				'AUTHENTICATION_FAILED',
+				'SUSPENDED',
+			]),
+			// error codes that happen only if a rate limit is defined
+			...(!endpoint.meta.limit ? [] : [
+				'RATE_LIMIT_EXCEEDED',
+			]),
+			// error codes that happen only if a file is required
+			...(!endpoint.meta.requireFile ? [] : [
+				'FILE_REQUIRED',
+			]),
+			// endpoint specific error codes
+			...(endpoint.meta.errors ?? []),
+		]
+		.reduce((acc, code) => {
+			const { message, httpStatusCode } = errorDefinitions[code];
+			const httpCode = httpStatusCode.toString();
 
-		if (endpoint.meta.errors) {
-			for (const e of Object.values(endpoint.meta.errors)) {
-				errors[e.code] = {
-					value: {
-						error: e,
+			if (!(httpCode in acc)) {
+				acc[httpCode] = {
+					description: httpCodes[httpCode],
+					content: {
+						'application/json': {
+							schema: {
+								'$ref': '#/components/schemas/Error',
+							},
+							examples: {},
+						},
 					},
 				};
 			}
+
+			acc[httpCode].content['application/json'].examples[code] = {
+				value: {
+					error: {
+						code,
+						message,
+						endpoint: endpoint.name,
+					},
+				},
+			};
+
+			return acc;
+		}, {});
+
+		// add successful response
+		if (endpoint.meta.res) {
+			responses['200'] = {
+				description: 'OK',
+				content: {
+					'application/json': {
+						schema: convertSchemaToOpenApiSchema(endpoint.meta.res),
+					},
+				},
+			};
+		} else {
+			responses['204'] = {
+				description: 'No Content',
+			};
 		}
 
-		const resSchema = endpoint.meta.res ? convertSchemaToOpenApiSchema(endpoint.meta.res) : {};
-
-		let desc = (endpoint.meta.description ? endpoint.meta.description : 'No description provided.') + '\n\n';
+		let desc = endpoint.meta.description ?? 'No description provided.';
 		desc += `**Credential required**: *${endpoint.meta.requireCredential ? 'Yes' : 'No'}*`;
 		if (endpoint.meta.kind) {
-			const kind = endpoint.meta.kind;
-			desc += ` / **Permission**: *${kind}*`;
+			desc += '\n\n**Permission**: `' + endpoint.meta.kind + '`';
+		}
+		if (endpoint.meta.limit) {
+			const limit = endpoint.meta.limit;
+
+			desc += '\n### Rate limit\nRate limiting group: `' + (limit.key ?? endpoint.name) + '`';
+			if (limit.duration && limit.max) {
+				desc += `    \nNo more than ${limit.max} requests every ${limit.duration} ms.`;
+			}
+			if (limit.minInterval) {
+				desc += `    \nMinimum delay between each request: ${endpoint.meta.limit.minInterval} ms.`;
+			}
 		}
 
 		const requestType = endpoint.meta.requireFile ? 'multipart/form-data' : 'application/json';
@@ -80,10 +159,16 @@ export function genOpenapiSpec() {
 			{
 				ApiKeyAuth: [],
 			},
-			{
-				Bearer: [],
-			},
 		];
+		if (endpoint.meta.kind) {
+			security.push({
+				OAuth: [endpoint.meta.kind],
+			});
+		} else {
+			security.push({
+				OAuth: [],
+			});
+		}
 		if (!endpoint.meta.requireCredential) {
 			// add this to make authentication optional
 			security.push({});
@@ -107,90 +192,8 @@ export function genOpenapiSpec() {
 					},
 				},
 			},
-			responses: {
-				...(endpoint.meta.res ? {
-					'200': {
-						description: 'OK (with results)',
-						content: {
-							'application/json': {
-								schema: resSchema,
-							},
-						},
-					},
-				} : {
-					'204': {
-						description: 'OK (without any results)',
-					},
-				}),
-				'400': {
-					description: 'Client error',
-					content: {
-						'application/json': {
-							schema: {
-								$ref: '#/components/schemas/Error',
-							},
-							examples: { ...errors, ...basicErrors['400'] },
-						},
-					},
-				},
-				'401': {
-					description: 'Authentication error',
-					content: {
-						'application/json': {
-							schema: {
-								$ref: '#/components/schemas/Error',
-							},
-							examples: basicErrors['401'],
-						},
-					},
-				},
-				'403': {
-					description: 'Forbidden error',
-					content: {
-						'application/json': {
-							schema: {
-								$ref: '#/components/schemas/Error',
-							},
-							examples: basicErrors['403'],
-						},
-					},
-				},
-				'418': {
-					description: 'I\'m Ai',
-					content: {
-						'application/json': {
-							schema: {
-								$ref: '#/components/schemas/Error',
-							},
-							examples: basicErrors['418'],
-						},
-					},
-				},
-				...(endpoint.meta.limit ? {
-					'429': {
-						description: 'To many requests',
-						content: {
-							'application/json': {
-								schema: {
-									$ref: '#/components/schemas/Error',
-								},
-								examples: basicErrors['429'],
-							},
-						},
-					},
-				} : {}),
-				'500': {
-					description: 'Internal server error',
-					content: {
-						'application/json': {
-							schema: {
-								$ref: '#/components/schemas/Error',
-							},
-							examples: basicErrors['500'],
-						},
-					},
-				},
-			},
+			responses,
+			deprecated: endpoint.meta.stability === 'deprecated',
 		};
 
 		const path = {
@@ -200,9 +203,60 @@ export function genOpenapiSpec() {
 			path.get = { ...info };
 			// API Key authentication is not permitted for GET requests
 			path.get.security = path.get.security.filter(elem => !Object.prototype.hasOwnProperty.call(elem, 'ApiKeyAuth'));
+
+			// fix the way parameters are passed
+			delete path.get.requestBody;
+			path.get.parameters = [];
+			for (const name in schema.properties) {
+				path.get.parameters.push({
+					name,
+					in: 'query',
+					schema: schema.properties[name],
+					required: schema.required?.includes(name),
+				});
+			}
 		}
 
 		spec.paths['/' + endpoint.name] = path;
+
+		if (endpoint.meta.v2) {
+			const route = `/v2/${endpoint.meta.v2.alias ?? endpoint.name.replace(/-/g, '_')}`;
+			// we need a clone of the API endpoint info because otherwise we change it by reference
+			const infoClone = structuredClone(info);
+			// fix the way parameters are passed
+			const hasBody = !(endpoint.meta.v2.method === 'get' || endpoint.meta.v2.method === 'delete');
+			if (!hasBody) {
+				// these methods do not (usually) have a body
+				delete infoClone.requestBody;
+				infoClone.parameters = [];
+				for (const name in schema.properties) {
+					infoClone.parameters.push({
+						name,
+						in: endpoint.meta.v2?.pathParameters?.includes(name) ? 'path' : 'query',
+						schema: schema.properties[name],
+						required: endpoint.meta.v2?.pathParameters?.includes(name) || schema.required?.includes(name) || false,
+					});
+				}
+			} else if (endpoint.meta.v2.pathParameters) {
+				for (const name in endpoint.meta.v2.pathParameters) {
+					delete infoClone.requestBody.content[requestType].schema.properties[name];
+					infoClone.parameters.push({
+						name,
+						in: 'path',
+						schema: schema.properties[name],
+						required: true,
+					});
+				}
+			}
+
+			infoClone['operationId'] = endpoint.meta.v2.method.toUpperCase() + '/' + route;
+			infoClone['summary'] = endpoint.meta.v2.method.toUpperCase() + ' ' + route;
+
+			spec.paths[route] = {
+				...spec.paths[route],
+				[endpoint.meta.v2.method]: infoClone,
+			};
+		}
 	}
 
 	return spec;

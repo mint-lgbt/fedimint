@@ -1,10 +1,10 @@
-import rndstr from 'rndstr';
 import { IsNull } from 'typeorm';
 import config from '@/config/index.js';
 import { Users, UserProfiles, PasswordResetRequests } from '@/models/index.js';
 import { sendEmail } from '@/services/send-email.js';
 import { genId } from '@/misc/gen-id.js';
-import { HOUR } from '@/const.js';
+import { secureRndstr } from '@/misc/secure-rndstr.js';
+import { DAY } from '@/const.js';
 import define from '../define.js';
 
 export const meta = {
@@ -15,12 +15,8 @@ export const meta = {
 	description: 'Request a users password to be reset.',
 
 	limit: {
-		duration: HOUR,
-		max: 3,
-	},
-
-	errors: {
-
+		duration: DAY,
+		max: 1,
 	},
 } as const;
 
@@ -57,7 +53,7 @@ export default define(meta, paramDef, async (ps) => {
 		return;
 	}
 
-	const token = rndstr('a-z0-9', 64);
+	const token = secureRndstr(64);
 
 	await PasswordResetRequests.insert({
 		id: genId(),

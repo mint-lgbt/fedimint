@@ -7,7 +7,7 @@
 			<XSidebar/>
 		</div>
 		<div v-else ref="widgetsLeft" class="widgets left">
-			<XWidgets :place="'left'" @mounted="attachSticky(widgetsLeft)"/>
+			<XWidgets place="left" @mounted="attachSticky(widgetsLeft)"/>
 		</div>
 
 		<main class="main" :style="{ background: pageMetadata?.value?.bg }" @contextmenu.stop="onContextmenu">
@@ -17,7 +17,7 @@
 		</main>
 
 		<div v-if="isDesktop" ref="widgetsRight" class="widgets right">
-			<XWidgets :place="null" @mounted="attachSticky(widgetsRight)"/>
+			<XWidgets @mounted="attachSticky(widgetsRight)"/>
 		</div>
 	</div>
 
@@ -34,8 +34,6 @@
 		<XWidgets v-if="widgetsShowing" class="tray"/>
 	</transition>
 
-	<iframe v-if="$store.state.aiChanMode" ref="live2d" class="ivnzpscs" src="https://misskey-dev.github.io/mascot-web/?scale=2&y=1.4"></iframe>
-
 	<XCommon/>
 </div>
 </template>
@@ -49,7 +47,7 @@ import { StickySidebar } from '@/scripts/sticky-sidebar';
 import * as os from '@/os';
 import { menuDef } from '@/menu';
 import { mainRouter } from '@/router';
-import { PageMetadata, provideMetadataReceiver, setPageMetadata } from '@/scripts/page-metadata';
+import { PageMetadata, provideMetadataReceiver } from '@/scripts/page-metadata';
 import { defaultStore } from '@/store';
 import { i18n } from '@/i18n';
 const XHeaderMenu = defineAsyncComponent(() => import('./classic.header.vue'));
@@ -65,7 +63,6 @@ let fullView = $ref(false);
 let globalHeaderHeight = $ref(0);
 const wallpaper = localStorage.getItem('wallpaper') != null;
 const showMenuOnTop = $computed(() => defaultStore.state.menuDisplay === 'top');
-let live2d = $ref<HTMLIFrameElement>();
 let widgetsLeft = $ref();
 let widgetsRight = $ref();
 
@@ -119,10 +116,6 @@ function onContextmenu(ev: MouseEvent) {
 	}], ev);
 }
 
-function onAiClick(ev) {
-	//if (this.live2d) this.live2d.click(ev);
-}
-
 if (window.innerWidth < 1024) {
 	localStorage.setItem('ui', 'default');
 	location.reload();
@@ -147,28 +140,6 @@ onMounted(() => {
 	window.addEventListener('resize', () => {
 		isDesktop = (window.innerWidth >= DESKTOP_THRESHOLD);
 	}, { passive: true });
-
-	if (defaultStore.state.aiChanMode) {
-		const iframeRect = live2d.getBoundingClientRect();
-		window.addEventListener('mousemove', ev => {
-			live2d.contentWindow.postMessage({
-				type: 'moveCursor',
-				body: {
-					x: ev.clientX - iframeRect.left,
-					y: ev.clientY - iframeRect.top,
-				},
-			}, '*');
-		}, { passive: true });
-		window.addEventListener('touchmove', ev => {
-			live2d.contentWindow.postMessage({
-				type: 'moveCursor',
-				body: {
-					x: ev.touches[0].clientX - iframeRect.left,
-					y: ev.touches[0].clientY - iframeRect.top,
-				},
-			}, '*');
-		}, { passive: true });
-	}
 });
 </script>
 

@@ -1,12 +1,21 @@
-import { CacheableLocalUser, CacheableUser, ILocalUser } from '@/models/entities/user.js';
+import { IsNull } from 'typeorm';
+import { CacheableLocalUser, ILocalUser, User } from '@/models/entities/user.js';
 import { Users } from '@/models/index.js';
 import { Cache } from '@/misc/cache.js';
 import { subscriber } from '@/db/redis.js';
 
-export const userByIdCache = new Cache<CacheableUser>(Infinity);
-export const localUserByNativeTokenCache = new Cache<CacheableLocalUser | null>(Infinity);
-export const localUserByIdCache = new Cache<CacheableLocalUser>(Infinity);
-export const uriPersonCache = new Cache<CacheableUser | null>(Infinity);
+export const userByIdCache = new Cache<User>(
+	Infinity,
+	async (id) => await Users.findOneBy({ id }) ?? undefined,
+);
+export const localUserByNativeTokenCache = new Cache<CacheableLocalUser>(
+	Infinity,
+	async (token) => await Users.findOneBy({ token, host: IsNull() }) as ILocalUser | null ?? undefined,
+);
+export const uriPersonCache = new Cache<User>(
+	Infinity,
+	async (uri) => await Users.findOneBy({ uri }) ?? undefined,
+);
 
 subscriber.on('message', async (_, data) => {
 	const obj = JSON.parse(data);
@@ -21,13 +30,12 @@ subscriber.on('message', async (_, data) => {
 				const user = await Users.findOneByOrFail({ id: body.id });
 				userByIdCache.set(user.id, user);
 				for (const [k, v] of uriPersonCache.cache.entries()) {
-					if (v.value?.id === user.id) {
+					if (v.value.id === user.id) {
 						uriPersonCache.set(k, user);
 					}
 				}
 				if (Users.isLocalUser(user)) {
 					localUserByNativeTokenCache.set(user.token, user);
-					localUserByIdCache.set(user.id, user);
 				}
 				break;
 			}

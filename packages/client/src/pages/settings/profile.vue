@@ -1,18 +1,18 @@
 <template>
 <div class="_formRoot">
 	<div class="llvierxe" :style="{ backgroundImage: $i.bannerUrl ? `url(${ $i.bannerUrl })` : null }">
-		<div class="avatar _acrylic">
+		<div class="avatar _panel">
 			<MkAvatar class="avatar" :user="$i" :disable-link="true" @click="changeAvatar"/>
 			<MkButton primary class="avatarEdit" @click="changeAvatar">{{ i18n.ts._profile.changeAvatar }}</MkButton>
 		</div>
 		<MkButton primary class="bannerEdit" @click="changeBanner">{{ i18n.ts._profile.changeBanner }}</MkButton>
 	</div>
 
-	<FormInput v-model="profile.name" :max="30" manual-save class="_formBlock">
+	<FormInput v-model="profile.name" :max="50" manual-save class="_formBlock">
 		<template #label>{{ i18n.ts._profile.name }}</template>
 	</FormInput>
 
-	<FormTextarea v-model="profile.description" :max="500" tall manual-save class="_formBlock">
+	<FormTextarea v-model="profile.description" :max="2048" tall manual-save class="_formBlock">
 		<template #label>{{ i18n.ts._profile.description }}</template>
 		<template #caption>{{ i18n.ts._profile.youCanIncludeHashtags }}</template>
 	</FormTextarea>
@@ -175,10 +175,6 @@ function changeBanner(ev) {
 		$i.bannerUrl = i.bannerUrl;
 	});
 }
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.profile,

@@ -8,7 +8,7 @@ import { getJson } from '@/misc/fetch.js';
 
 const logger = new Logger('url-preview');
 
-export const urlPreviewHandler = async (ctx: Koa.Context) => {
+export const urlPreviewHandler = async (ctx: Koa.Context): Promise<void> => {
 	const url = ctx.query.url;
 	if (typeof url !== 'string') {
 		ctx.status = 400;
@@ -30,10 +30,10 @@ export const urlPreviewHandler = async (ctx: Koa.Context) => {
 	try {
 		const summary = meta.summalyProxy ? await getJson(`${meta.summalyProxy}?${query({
 			url,
-			lang: lang ?? 'ja-JP',
+			lang: lang ?? 'en-US',
 		})}`) : await summaly.default(url, {
 			followRedirects: false,
-			lang: lang ?? 'ja-JP',
+			lang: lang ?? 'en-US',
 		});
 
 		logger.succ(`Got preview of ${url}: ${summary.title}`);

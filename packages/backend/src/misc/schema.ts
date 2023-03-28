@@ -16,6 +16,7 @@ import { packedDriveFileSchema } from '@/models/schema/drive-file.js';
 import { packedDriveFolderSchema } from '@/models/schema/drive-folder.js';
 import { packedFollowingSchema } from '@/models/schema/following.js';
 import { packedMutingSchema } from '@/models/schema/muting.js';
+import { packedRenoteMutingSchema } from '@/models/schema/renote-muting.js';
 import { packedBlockingSchema } from '@/models/schema/blocking.js';
 import { packedNoteReactionSchema } from '@/models/schema/note-reaction.js';
 import { packedHashtagSchema } from '@/models/schema/hashtag.js';
@@ -27,7 +28,6 @@ import { packedAntennaSchema } from '@/models/schema/antenna.js';
 import { packedClipSchema } from '@/models/schema/clip.js';
 import { packedFederationInstanceSchema } from '@/models/schema/federation-instance.js';
 import { packedQueueCountSchema } from '@/models/schema/queue.js';
-import { packedGalleryPostSchema } from '@/models/schema/gallery-post.js';
 import { packedEmojiSchema } from '@/models/schema/emoji.js';
 
 export const refs = {
@@ -51,6 +51,7 @@ export const refs = {
 	DriveFolder: packedDriveFolderSchema,
 	Following: packedFollowingSchema,
 	Muting: packedMutingSchema,
+	RenoteMuting: packedRenoteMutingSchema,
 	Blocking: packedBlockingSchema,
 	Hashtag: packedHashtagSchema,
 	Page: packedPageSchema,
@@ -59,7 +60,6 @@ export const refs = {
 	Antenna: packedAntennaSchema,
 	Clip: packedClipSchema,
 	FederationInstance: packedFederationInstanceSchema,
-	GalleryPost: packedGalleryPostSchema,
 	Emoji: packedEmojiSchema,
 };
 

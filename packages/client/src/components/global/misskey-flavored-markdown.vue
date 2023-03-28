@@ -1,12 +1,11 @@
 <template>
-<MfmCore :text="text" :plain="plain" :nowrap="nowrap" :author="author" :customEmojis="customEmojis" :isNote="isNote" class="havbbuyv" :class="{ nowrap }"/>
+<MfmCore :text="text" :plain="plain" :nowrap="nowrap" :author="author" :custom-emojis="customEmojis" :is-note="isNote" class="havbbuyv" :class="{ nowrap }"/>
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import MfmCore from '@/components/mfm';
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
 	text: string;
 	plain?: boolean;
 	nowrap?: boolean;
@@ -155,6 +154,13 @@ const props = withDefaults(defineProps<{
 @keyframes mfm-rainbow {
 	0% { filter: hue-rotate(0deg) contrast(150%) saturate(150%); }
 	100% { filter: hue-rotate(360deg) contrast(150%) saturate(150%); }
+}
+
+@keyframes mfm-tada {
+	0%, 100% { transform: scale3d(1, 1, 1); }
+	10%, 20% { transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -3deg); }
+	30%, 50%, 70%, 90% { transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, 3deg); }
+	40%, 60%, 80% { transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, -3deg); }
 }
 </style>
 

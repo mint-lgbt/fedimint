@@ -1,7 +1,7 @@
 import { defineAsyncComponent, reactive } from 'vue';
-import * as misskey from 'misskey-js';
-import { showSuspendedDialog } from './scripts/show-suspended-dialog';
-import { i18n } from './i18n';
+import * as foundkey from 'foundkey-js';
+import { showSuspendedDialog } from '@/scripts/show-suspended-dialog';
+import { i18n } from '@/i18n';
 import { del, get, set } from '@/scripts/idb-proxy';
 import { apiUrl } from '@/config';
 import { waiting, api, popup, popupMenu, success, alert } from '@/os';
@@ -9,7 +9,7 @@ import { unisonReload, reloadChannel } from '@/scripts/unison-reload';
 
 // TODO: 他のタブと永続化されたstateを同期
 
-type Account = misskey.entities.MeDetailed;
+type Account = foundkey.entities.MeDetailed;
 
 const accountData = localStorage.getItem('account');
 
@@ -32,12 +32,8 @@ export async function signout() {
 			const registration = await navigator.serviceWorker.ready;
 			const push = await registration.pushManager.getSubscription();
 			if (push) {
-				await fetch(`${apiUrl}/sw/unregister`, {
-					method: 'POST',
-					body: JSON.stringify({
-						i: $i.token,
-						endpoint: push.endpoint,
-					}),
+				await api('sw/unregister', {
+					endpoint: push.endpoint,
 				});
 			}
 		}
@@ -79,13 +75,7 @@ export async function removeAccount(id: Account['id']) {
 function fetchAccount(token: string): Promise<Account> {
 	return new Promise((done, fail) => {
 		// Fetch user
-		fetch(`${apiUrl}/i`, {
-			method: 'POST',
-			body: JSON.stringify({
-				i: token,
-			}),
-		})
-		.then(res => res.json())
+		api('i', {}, token)
 		.then(res => {
 			if (res.error) {
 				if (res.error.id === 'a8c724b3-6e9c-4b46-b1a8-bc3ed6258370') {
@@ -141,8 +131,8 @@ export async function login(token: Account['token'], redirect?: string) {
 export async function openAccountMenu(opts: {
 	includeCurrentAccount?: boolean;
 	withExtraOperation: boolean;
-	active?: misskey.entities.UserDetailed['id'];
-	onChoose?: (account: misskey.entities.UserDetailed) => void;
+	active?: foundkey.entities.UserDetailed['id'];
+	onChoose?: (account: foundkey.entities.UserDetailed) => void;
 }, ev: MouseEvent) {
 	function showSigninDialog() {
 		popup(defineAsyncComponent(() => import('@/components/signin-dialog.vue')), {}, {
@@ -162,7 +152,7 @@ export async function openAccountMenu(opts: {
 		}, 'closed');
 	}
 
-	async function switchAccount(account: misskey.entities.UserDetailed) {
+	async function switchAccount(account: foundkey.entities.UserDetailed) {
 		const storedAccounts = await getAccounts();
 		const token = storedAccounts.find(x => x.id === account.id).token;
 		switchAccountWithToken(token);
@@ -175,7 +165,7 @@ export async function openAccountMenu(opts: {
 	const storedAccounts = await getAccounts().then(accounts => accounts.filter(x => x.id !== $i.id));
 	const accountsPromise = api('users/show', { userIds: storedAccounts.map(x => x.id) });
 
-	function createItem(account: misskey.entities.UserDetailed) {
+	function createItem(account: foundkey.entities.UserDetailed) {
 		return {
 			type: 'user',
 			user: account,

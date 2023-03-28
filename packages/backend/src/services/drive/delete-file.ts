@@ -7,7 +7,7 @@ import { fetchMeta } from '@/misc/fetch-meta.js';
 import { InternalStorage } from './internal-storage.js';
 import { getS3 } from './s3.js';
 
-export async function deleteFile(file: DriveFile, isExpired = false) {
+export async function deleteFile(file: DriveFile, isExpired = false): Promise<void> {
 	if (file.storedInternal) {
 		InternalStorage.del(file.accessKey!);
 
@@ -33,7 +33,7 @@ export async function deleteFile(file: DriveFile, isExpired = false) {
 	postProcess(file, isExpired);
 }
 
-export async function deleteFileSync(file: DriveFile, isExpired = false) {
+export async function deleteFileSync(file: DriveFile, isExpired = false): Promise<void> {
 	if (file.storedInternal) {
 		InternalStorage.del(file.accessKey!);
 
@@ -63,33 +63,33 @@ export async function deleteFileSync(file: DriveFile, isExpired = false) {
 	postProcess(file, isExpired);
 }
 
-async function postProcess(file: DriveFile, isExpired = false) {
-	// リモートファイル期限切れ削除後は直リンクにする
-	if (isExpired && file.userHost !== null && file.uri != null) {
+async function postProcess(file: DriveFile, isExpired = false): Promise<void> {
+	// Turn into a direct link after expiring a remote file.
+	if (isExpired && file.userHost != null && file.uri != null) {
+		const id = uuid();
 		DriveFiles.update(file.id, {
 			isLink: true,
 			url: file.uri,
 			thumbnailUrl: null,
 			webpublicUrl: null,
 			storedInternal: false,
-			// ローカルプロキシ用
-			accessKey: uuid(),
-			thumbnailAccessKey: 'thumbnail-' + uuid(),
-			webpublicAccessKey: 'webpublic-' + uuid(),
+			accessKey: id,
+			thumbnailAccessKey: 'thumbnail-' + id,
+			webpublicAccessKey: 'webpublic-' + id,
 		});
 	} else {
 		DriveFiles.delete(file.id);
 	}
 
-	// 統計を更新
+	// update statistics
 	driveChart.update(file, false);
 	perUserDriveChart.update(file, false);
-	if (file.userHost !== null) {
+	if (file.userHost != null) {
 		instanceChart.updateDrive(file, false);
 	}
 }
 
-export async function deleteObjectStorageFile(key: string) {
+export async function deleteObjectStorageFile(key: string): Promise<void> {
 	const meta = await fetchMeta();
 
 	const s3 = getS3(meta);

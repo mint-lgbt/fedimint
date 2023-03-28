@@ -5,8 +5,7 @@
 	</p>
 	<ul>
 		<li v-for="(choice, i) in choices" :key="i">
-			<MkInput class="input" small :model-value="choice" :placeholder="$t('_poll.choiceN', { n: i + 1 })" @update:modelValue="onInput(i, $event)">
-			</MkInput>
+			<FormInput class="input" small :model-value="choice" :placeholder="i18n.t('_poll.choiceN', { n: i + 1 })" @update:modelValue="onInput(i, $event)"/>
 			<button class="_button" @click="remove(i)">
 				<i class="fas fa-times"></i>
 			</button>
@@ -14,33 +13,33 @@
 	</ul>
 	<MkButton v-if="choices.length < 10" class="add" @click="add">{{ i18n.ts.add }}</MkButton>
 	<MkButton v-else class="add" disabled>{{ i18n.ts._poll.noMore }}</MkButton>
-	<MkSwitch v-model="multiple">{{ i18n.ts._poll.canMultipleVote }}</MkSwitch>
+	<FormSwitch v-model="multiple">{{ i18n.ts._poll.canMultipleVote }}</FormSwitch>
 	<section>
 		<div>
-			<MkSelect v-model="expiration" small>
+			<FormSelect v-model="expiration" small>
 				<template #label>{{ i18n.ts._poll.expiration }}</template>
 				<option value="infinite">{{ i18n.ts._poll.infinite }}</option>
 				<option value="at">{{ i18n.ts._poll.at }}</option>
 				<option value="after">{{ i18n.ts._poll.after }}</option>
-			</MkSelect>
+			</FormSelect>
 			<section v-if="expiration === 'at'">
-				<MkInput v-model="atDate" small type="date" class="input">
+				<FormInput v-model="atDate" small type="date" class="input">
 					<template #label>{{ i18n.ts._poll.deadlineDate }}</template>
-				</MkInput>
-				<MkInput v-model="atTime" small type="time" class="input">
+				</FormInput>
+				<FormInput v-model="atTime" small type="time" class="input">
 					<template #label>{{ i18n.ts._poll.deadlineTime }}</template>
-				</MkInput>
+				</FormInput>
 			</section>
 			<section v-else-if="expiration === 'after'">
-				<MkInput v-model="after" small type="number" class="input">
+				<FormInput v-model="after" small type="number" class="input">
 					<template #label>{{ i18n.ts._poll.duration }}</template>
-				</MkInput>
-				<MkSelect v-model="unit" small>
+				</FormInput>
+				<FormSelect v-model="unit" small>
 					<option value="second">{{ i18n.ts._time.second }}</option>
 					<option value="minute">{{ i18n.ts._time.minute }}</option>
 					<option value="hour">{{ i18n.ts._time.hour }}</option>
 					<option value="day">{{ i18n.ts._time.day }}</option>
-				</MkSelect>
+				</FormSelect>
 			</section>
 		</div>
 	</section>
@@ -49,13 +48,14 @@
 
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
-import MkInput from './form/input.vue';
-import MkSelect from './form/select.vue';
-import MkSwitch from './form/switch.vue';
+import FormInput from './form/input.vue';
+import FormSelect from './form/select.vue';
+import FormSwitch from './form/switch.vue';
 import MkButton from './ui/button.vue';
 import { formatDateTimeString } from '@/scripts/format-time-string';
 import { addTime } from '@/scripts/time';
 import { i18n } from '@/i18n';
+import { DAY, HOUR, MINUTE, SECOND } from '@/const';
 
 const props = defineProps<{
 	modelValue: {
@@ -92,11 +92,11 @@ if (props.modelValue.expiresAt) {
 	expiration.value = 'infinite';
 }
 
-function onInput(i, value) {
+function onInput(i: number, value: string): void {
 	choices.value[i] = value;
 }
 
-function add() {
+function add(): void {
 	choices.value.push('');
 	// TODO
 	// nextTick(() => {
@@ -104,25 +104,22 @@ function add() {
 	// });
 }
 
-function remove(i) {
+function remove(i: number): void {
 	choices.value = choices.value.filter((_, _i) => _i !== i);
 }
 
 function get() {
-	const calcAt = () => {
+	const calcAt = (): number => {
 		return new Date(`${atDate.value} ${atTime.value}`).getTime();
 	};
 
-	const calcAfter = () => {
+	const calcAfter = (): number | null => {
 		let base = parseInt(after.value);
 		switch (unit.value) {
-			case 'day': base *= 24;
-				// fallthrough
-			case 'hour': base *= 60;
-				// fallthrough
-			case 'minute': base *= 60;
-				// fallthrough
-			case 'second': return base *= 1000;
+			case 'day': return base * DAY;
+			case 'hour': return base * HOUR;
+			case 'minute': return base * MINUTE;
+			case 'second': return base * SECOND;
 			default: return null;
 		}
 	};

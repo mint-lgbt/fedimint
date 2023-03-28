@@ -1,17 +1,19 @@
+import { DAY } from '@/const.js';
 import { CacheableRemoteUser } from '@/models/entities/user.js';
+import { Resolver } from '@/remote/activitypub/resolver.js';
 import { IObject } from './type.js';
 import { performActivity } from './kernel/index.js';
 import { updatePerson } from './models/person.js';
 
-export default async (actor: CacheableRemoteUser, activity: IObject): Promise<void> => {
-	await performActivity(actor, activity);
+export async function perform(actor: CacheableRemoteUser, activity: IObject, resolver: Resolver): Promise<void> {
+	await performActivity(actor, activity, resolver);
 
-	// ついでにリモートユーザーの情報が古かったら更新しておく
+	// And while I'm at it, I'll update the remote user information if it's out of date.
 	if (actor.uri) {
-		if (actor.lastFetchedAt == null || Date.now() - actor.lastFetchedAt.getTime() > 1000 * 60 * 60 * 24) {
+		if (actor.lastFetchedAt == null || Date.now() - actor.lastFetchedAt.getTime() > DAY) {
 			setImmediate(() => {
-				updatePerson(actor.uri!);
+				updatePerson(actor.uri!, resolver);
 			});
 		}
 	}
-};
+}

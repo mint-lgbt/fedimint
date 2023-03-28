@@ -1,8 +1,5 @@
-import config from '@/config/index.js';
-import { getJson } from '@/misc/fetch.js';
 import { ILocalUser } from '@/models/entities/user.js';
 import { getInstanceActor } from '@/services/instance-actor.js';
-import { fetchMeta } from '@/misc/fetch-meta.js';
 import { extractDbHost, isSelfHost } from '@/misc/convert-host.js';
 import { Notes, NoteReactions, Polls, Users } from '@/models/index.js';
 import renderNote from '@/remote/activitypub/renderer/note.js';
@@ -12,16 +9,24 @@ import renderQuestion from '@/remote/activitypub/renderer/question.js';
 import renderCreate from '@/remote/activitypub/renderer/create.js';
 import { renderActivity } from '@/remote/activitypub/renderer/index.js';
 import renderFollow from '@/remote/activitypub/renderer/follow.js';
+import { shouldBlockInstance } from '@/misc/should-block-instance.js';
 import { signedGet } from './request.js';
-import { IObject, isCollectionOrOrderedCollection, ICollection, IOrderedCollection } from './type.js';
+import { getApId, IObject, isCollectionOrOrderedCollection, ICollection, IOrderedCollection } from './type.js';
 import { parseUri } from './db-resolver.js';
 
-export default class Resolver {
+/**
+ * Tries to resolve an ActivityPub URI into an AP object.
+ *
+ * As opposed to the DbResolver which will try to resolve an ActivityPub URI into a database object.
+ */
+export class Resolver {
 	private history: Set<string>;
 	private user?: ILocalUser;
+	private recursionLimit?: number;
 
-	constructor() {
+	constructor(recursionLimit = 100) {
 		this.history = new Set();
+		this.recursionLimit = recursionLimit;
 	}
 
 	public getHistory(): string[] {
@@ -29,9 +34,7 @@ export default class Resolver {
 	}
 
 	public async resolveCollection(value: string | IObject): Promise<ICollection | IOrderedCollection> {
-		const collection = typeof value === 'string'
-			? await this.resolve(value)
-			: value;
+		const collection = await this.resolve(value);
 
 		if (isCollectionOrOrderedCollection(collection)) {
 			return collection;
@@ -40,12 +43,18 @@ export default class Resolver {
 		}
 	}
 
-	public async resolve(value: string | IObject): Promise<IObject> {
+	public async resolve(value?: string | IObject | null, allowRedirect = false): Promise<IObject> {
 		if (value == null) {
 			throw new Error('resolvee is null (or undefined)');
 		}
 
 		if (typeof value !== 'string') {
+			if (typeof value.id !== 'undefined') {
+				const host = extractDbHost(getApId(value));
+				if (await shouldBlockInstance(host)) {
+					throw new Error('instance is blocked');
+				}
+			}
 			return value;
 		}
 
@@ -59,7 +68,9 @@ export default class Resolver {
 		if (this.history.has(value)) {
 			throw new Error('cannot resolve already resolved one');
 		}
-
+		if (this.recursionLimit && this.history.size > this.recursionLimit) {
+			throw new Error('hit recursion limit');
+		}
 		this.history.add(value);
 
 		const host = extractDbHost(value);
@@ -67,24 +78,28 @@ export default class Resolver {
 			return await this.resolveLocal(value);
 		}
 
-		const meta = await fetchMeta();
-		if (meta.blockedHosts.includes(host)) {
-			throw new Error('Instance is blocked');
+		if (await shouldBlockInstance(host)) {
+			throw new Error('instance is blocked');
 		}
 
-		if (config.signToActivityPubGet && !this.user) {
+		if (!this.user) {
 			this.user = await getInstanceActor();
 		}
 
-		const object = (this.user
-			? await signedGet(value, this.user)
-			: await getJson(value, 'application/activity+json, application/ld+json')) as IObject;
+		const object = await signedGet(value, this.user);
 
-		if (object == null || (
-			Array.isArray(object['@context']) ?
-				!(object['@context'] as unknown[]).includes('https://www.w3.org/ns/activitystreams') :
-				object['@context'] !== 'https://www.w3.org/ns/activitystreams'
-		)) {
+		if (
+			object == null
+			|| // check that this is an activitypub object by looking at the @context
+			(
+				Array.isArray(object['@context']) ?
+					!(object['@context'] as unknown[]).includes('https://www.w3.org/ns/activitystreams') :
+					object['@context'] !== 'https://www.w3.org/ns/activitystreams'
+			)
+			// Did we actually get the object that corresponds to the canonical URL?
+			// Does the host we requested stuff from actually correspond to the host that owns the activity?
+			|| !(getApId(object) == null || getApId(object) === value || allowRedirect)
+		) {
 			throw new Error('invalid response');
 		}
 
@@ -123,7 +138,7 @@ export default class Resolver {
 				if (parsed.rest == null || !/^\w+$/.test(parsed.rest)) throw new Error('resolveLocal: invalid follow URI');
 
 				return Promise.all(
-					[parsed.id, parsed.rest].map(id => Users.findOneByOrFail({ id }))
+					[parsed.id, parsed.rest].map(id => Users.findOneByOrFail({ id })),
 				)
 				.then(([follower, followee]) => renderActivity(renderFollow(follower, followee, url)));
 			default:

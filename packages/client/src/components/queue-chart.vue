@@ -21,8 +21,6 @@ import {
 	SubTitle,
 	Filler,
 } from 'chart.js';
-import number from '@/filters/number';
-import * as os from '@/os';
 import { defaultStore } from '@/store';
 
 Chart.register(
@@ -67,7 +65,7 @@ onMounted(() => {
 				borderJoinStyle: 'round',
 				borderColor: '#00E396',
 				backgroundColor: '#00E3961A',
-				data: []
+				data: [],
 			}, {
 				label: 'Active',
 				pointRadius: 0,
@@ -76,7 +74,7 @@ onMounted(() => {
 				borderJoinStyle: 'round',
 				borderColor: '#00BCD4',
 				backgroundColor: '#00BCD41A',
-				data: []
+				data: [],
 			}, {
 				label: 'Waiting',
 				pointRadius: 0,
@@ -86,7 +84,7 @@ onMounted(() => {
 				borderColor: '#FFB300',
 				backgroundColor: '#FFB3001A',
 				yAxisID: 'y2',
-				data: []
+				data: [],
 			}, {
 				label: 'Delayed',
 				pointRadius: 0,
@@ -97,7 +95,7 @@ onMounted(() => {
 				borderDash: [5, 5],
 				fill: false,
 				yAxisID: 'y2',
-				data: []
+				data: [],
 			}],
 		},
 		options: {
@@ -119,7 +117,7 @@ onMounted(() => {
 					},
 					ticks: {
 						display: false,
-						maxTicksLimit: 10
+						maxTicksLimit: 10,
 					},
 				},
 				y: {

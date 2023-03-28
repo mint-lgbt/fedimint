@@ -137,7 +137,7 @@ export const NoteRepository = db.getRepository(Note).extend({
 			_hint_?: {
 				myReactions: Map<Note['id'], NoteReaction | null>;
 			};
-		}
+		},
 	): Promise<Packed<'Note'>> {
 		const opts = Object.assign({
 			detail: true,
@@ -163,7 +163,7 @@ export const NoteRepository = db.getRepository(Note).extend({
 				: await Channels.findOneBy({ id: note.channelId })
 			: null;
 
-		const reactionEmojiNames = Object.keys(note.reactions).filter(x => x?.startsWith(':')).map(x => decodeReaction(x).reaction).map(x => x.replace(/:/g, ''));
+		const reactionEmojiNames = Object.keys(note.reactions).filter(x => x.startsWith(':')).map(x => decodeReaction(x).reaction).map(x => x.replace(/:/g, ''));
 
 		const packed: Packed<'Note'> = await awaitAll({
 			id: note.id,
@@ -216,12 +216,20 @@ export const NoteRepository = db.getRepository(Note).extend({
 
 		if (packed.user.isCat && packed.text) {
 			const tokens = packed.text ? mfm.parse(packed.text) : [];
-			mfm.inspect(tokens, node => {
+			function nyaizeNode(node: mfm.Node) {
+				if (node.type === 'quote') return;
 				if (node.type === 'text') {
-					// TODO: quoteなtextはskip
 					node.props.text = nyaize(node.props.text);
 				}
-			});
+				if (node.children) {
+					for (const child of node.children) {
+						nyaizeNode(child);
+					}
+				}
+			}
+			for (const node of tokens) {
+				nyaizeNode(node);
+			}
 			packed.text = mfm.toString(tokens);
 		}
 
@@ -233,7 +241,7 @@ export const NoteRepository = db.getRepository(Note).extend({
 		me?: { id: User['id'] } | null | undefined,
 		options?: {
 			detail?: boolean;
-		}
+		},
 	) {
 		if (notes.length === 0) return [];
 

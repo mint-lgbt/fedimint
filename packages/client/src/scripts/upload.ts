@@ -1,9 +1,9 @@
 import { reactive, ref } from 'vue';
+import * as foundkey from 'foundkey-js';
+import { readAndCompressImage } from 'browser-image-resizer';
 import { defaultStore } from '@/store';
 import { apiUrl } from '@/config';
-import * as Misskey from 'misskey-js';
 import { $i } from '@/account';
-import { readAndCompressImage } from 'browser-image-resizer';
 import { alert } from '@/os';
 
 type Uploading = {
@@ -29,11 +29,11 @@ const mimeTypeMap = {
 
 export function uploadFile(
 	file: File,
-	folder?: any,
+	folder?: string | Record<string, any>,
 	name?: string,
-	keepOriginal: boolean = defaultStore.state.keepOriginalUploading
-): Promise<Misskey.entities.DriveFile> {
-	if (folder && typeof folder === 'object') folder = folder.id;
+	keepOriginal: boolean = defaultStore.state.keepOriginalUploading,
+): Promise<foundkey.entities.DriveFile> {
+	const folderId = typeof folder === 'string' ? folder : folder?.id;
 
 	return new Promise((resolve, reject) => {
 		const id = Math.random().toString();
@@ -41,11 +41,11 @@ export function uploadFile(
 		const reader = new FileReader();
 		reader.onload = async (ev) => {
 			const ctx = reactive<Uploading>({
-				id: id,
+				id,
 				name: name || file.name || 'untitled',
 				progressMax: undefined,
 				progressValue: undefined,
-				img: window.URL.createObjectURL(file)
+				img: window.URL.createObjectURL(file),
 			});
 
 			uploads.value.push(ctx);
@@ -73,7 +73,7 @@ export function uploadFile(
 			formData.append('force', 'true');
 			formData.append('file', resizedImage || file);
 			formData.append('name', ctx.name);
-			if (folder) formData.append('folderId', folder);
+			if (folderId) formData.append('folderId', folderId);
 
 			const xhr = new XMLHttpRequest();
 			xhr.open('POST', apiUrl + '/drive/files/create', true);
@@ -86,7 +86,7 @@ export function uploadFile(
 					alert({
 						type: 'error',
 						title: 'Failed to upload',
-						text: `${JSON.stringify(ev.target?.response)}, ${JSON.stringify(xhr.response)}`
+						text: `${JSON.stringify(ev.target?.response)}, ${JSON.stringify(xhr.response)}`,
 					});
 
 					reject();

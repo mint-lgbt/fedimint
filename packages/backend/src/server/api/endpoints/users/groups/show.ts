@@ -17,13 +17,7 @@ export const meta = {
 		ref: 'UserGroup',
 	},
 
-	errors: {
-		noSuchGroup: {
-			message: 'No such group.',
-			code: 'NO_SUCH_GROUP',
-			id: 'ea04751e-9b7e-487b-a509-330fb6bd6b9b',
-		},
-	},
+	errors: ['NO_SUCH_GROUP'],
 } as const;
 
 export const paramDef = {
@@ -41,17 +35,15 @@ export default define(meta, paramDef, async (ps, me) => {
 		id: ps.groupId,
 	});
 
-	if (userGroup == null) {
-		throw new ApiError(meta.errors.noSuchGroup);
-	}
+	if (userGroup == null) throw new ApiError('NO_SUCH_GROUP');
 
-	const joining = await UserGroupJoinings.findOneBy({
+	const joined = await UserGroupJoinings.countBy({
 		userId: me.id,
 		userGroupId: userGroup.id,
 	});
 
-	if (joining == null && userGroup.userId !== me.id) {
-		throw new ApiError(meta.errors.noSuchGroup);
+	if (!joined && userGroup.userId !== me.id) {
+		throw new ApiError('NO_SUCH_GROUP');
 	}
 
 	return await UserGroups.pack(userGroup);

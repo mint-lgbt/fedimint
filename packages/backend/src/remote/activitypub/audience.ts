@@ -2,7 +2,7 @@ import promiseLimit from 'promise-limit';
 import { CacheableRemoteUser, CacheableUser } from '@/models/entities/user.js';
 import { unique, concat } from '@/prelude/array.js';
 import { resolvePerson } from './models/person.js';
-import Resolver from './resolver.js';
+import { Resolver } from './resolver.js';
 import { ApObject, getApIds } from './type.js';
 
 type Visibility = 'public' | 'home' | 'followers' | 'specified';
@@ -21,7 +21,7 @@ export async function parseAudience(actor: CacheableRemoteUser, to?: ApObject, c
 
 	const limit = promiseLimit<CacheableUser | null>(2);
 	const mentionedUsers = (await Promise.all(
-		others.map(id => limit(() => resolvePerson(id, resolver).catch(() => null)))
+		others.map(id => limit(() => resolvePerson(id, resolver).catch(() => null))),
 	)).filter((x): x is CacheableUser => x != null);
 
 	if (toGroups.public.length > 0) {

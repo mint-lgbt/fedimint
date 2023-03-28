@@ -1,5 +1,5 @@
 <template>
-<div class="mk-uploader _acrylic" :style="{ zIndex }">
+<div class="mk-uploader _panel" :style="{ zIndex }">
 	<ol v-if="uploads.length > 0">
 		<li v-for="ctx in uploads" :key="ctx.id">
 			<div class="img" :style="{ backgroundImage: `url(${ ctx.img })` }"></div>
@@ -18,7 +18,6 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import * as os from '@/os';
 import { uploads } from '@/scripts/upload';
 import { i18n } from '@/i18n';

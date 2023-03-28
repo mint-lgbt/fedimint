@@ -5,24 +5,24 @@ import { genId } from '@/misc/gen-id.js';
 import { Hashtag } from '@/models/entities/hashtag.js';
 import { normalizeForSearch } from '@/misc/normalize-for-search.js';
 
-export async function updateHashtags(user: { id: User['id']; host: User['host']; }, tags: string[]) {
+export async function updateHashtags(user: { id: User['id']; host: User['host']; }, tags: string[]): Promise<void> {
 	for (const tag of tags) {
 		await updateHashtag(user, tag);
 	}
 }
 
-export async function updateUsertags(user: User, tags: string[]) {
+export async function updateUsertags(user: User, tags: string[]): Promise<void> {
 	for (const tag of tags) {
 		await updateHashtag(user, tag, true, true);
 	}
 
-	for (const tag of (user.tags || []).filter(x => !tags.includes(x))) {
+	for (const tag of user.tags.filter(x => !tags.includes(x))) {
 		await updateHashtag(user, tag, true, false);
 	}
 }
 
-export async function updateHashtag(user: { id: User['id']; host: User['host']; }, tag: string, isUserAttached = false, inc = true) {
-	tag = normalizeForSearch(tag);
+export async function updateHashtag(user: { id: User['id']; host: User['host']; }, _tag: string, isUserAttached = false, inc = true): Promise<void> {
+	const tag = normalizeForSearch(_tag);
 
 	const index = await Hashtags.findOneBy({ name: tag });
 

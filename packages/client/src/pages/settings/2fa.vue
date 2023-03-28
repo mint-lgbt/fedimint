@@ -13,12 +13,12 @@
 			<div class="key-list">
 				<div v-for="key in $i.securityKeysList" class="key">
 					<h3>{{ key.name }}</h3>
-					<div class="last-used">{{ i18n.ts.lastUsed }}<MkTime :time="key.lastUsed"/></div>
+					<div class="last-used">{{ i18n.ts.lastUsed }} <MkTime :time="key.lastUsed"/></div>
 					<MkButton @click="unregisterKey(key)">{{ i18n.ts.unregister }}</MkButton>
 				</div>
 			</div>
 
-			<MkSwitch v-if="$i.securityKeysList.length > 0" v-model="usePasswordLessLogin" @update:modelValue="updatePasswordLessLogin">{{ i18n.ts.passwordLessLogin }}</MkSwitch>
+			<FormSwitch v-if="$i.securityKeysList.length > 0" v-model="usePasswordLessLogin" @update:modelValue="updatePasswordLessLogin">{{ i18n.ts.passwordLessLogin }}</FormSwitch>
 
 			<MkInfo v-if="registration && registration.error" warn>{{ i18n.ts.error }} {{ registration.error }}</MkInfo>
 			<MkButton v-if="!registration || registration.error" @click="addSecurityKey">{{ i18n.ts._2fa.registerKey }}</MkButton>
@@ -30,9 +30,9 @@
 				</li>
 				<li v-if="registration.stage >= 1">
 					<MkForm :disabled="registration.stage != 1 || registration.saving">
-						<MkInput v-model="keyName" :max="30">
+						<FormInput v-model="keyName" :max="30">
 							<template #label>{{ i18n.ts.securityKeyName }}</template>
-						</MkInput>
+						</FormInput>
 						<MkButton :disabled="keyName.length == 0" @click="registerKey">{{ i18n.ts.registerSecurityKey }}</MkButton>
 						<i v-if="registration.saving && registration.stage == 1" class="fas fa-spinner fa-pulse fa-fw"></i>
 					</MkForm>
@@ -52,10 +52,10 @@
 					</template>
 				</I18n>
 			</li>
-			<li>{{ i18n.ts._2fa.step2 }}<br><img :src="twoFactorData.qr"><p>{{ $ts._2fa.step2Url }}<br>{{ twoFactorData.url }}</p></li>
+			<li>{{ i18n.ts._2fa.step2 }}<br><img :src="twoFactorData.qr"><p>{{ i18n.ts._2fa.step2Url }}<br>{{ twoFactorData.url }}</p></li>
 			<li>
 				{{ i18n.ts._2fa.step3 }}<br>
-				<MkInput v-model="token" type="text" pattern="^[0-9]{6}$" autocomplete="off" :spellcheck="false"><template #label>{{ i18n.ts.token }}</template></MkInput>
+				<FormInput v-model="token" type="text" pattern="^[0-9]{6}$" autocomplete="off" :spellcheck="false"><template #label>{{ i18n.ts.token }}</template></FormInput>
 				<MkButton primary @click="submit">{{ i18n.ts.done }}</MkButton>
 			</li>
 		</ol>
@@ -70,11 +70,12 @@ import { hostname } from '@/config';
 import { byteify, hexify, stringify } from '@/scripts/2fa';
 import MkButton from '@/components/ui/button.vue';
 import MkInfo from '@/components/ui/info.vue';
-import MkInput from '@/components/form/input.vue';
-import MkSwitch from '@/components/form/switch.vue';
+import FormInput from '@/components/form/input.vue';
+import FormSwitch from '@/components/form/switch.vue';
 import * as os from '@/os';
 import { $i } from '@/account';
 import { i18n } from '@/i18n';
+import { MINUTE } from '@/const';
 
 const twoFactorData = ref<any>(null);
 const supportsCredentials = ref(!!navigator.credentials);
@@ -86,11 +87,11 @@ const token = ref(null);
 function register() {
 	os.inputText({
 		title: i18n.ts.password,
-		type: 'password'
+		type: 'password',
 	}).then(({ canceled, result: password }) => {
 		if (canceled) return;
 		os.api('i/2fa/register', {
-			password: password
+			password,
 		}).then(data => {
 			twoFactorData.value = data;
 		});
@@ -100,11 +101,11 @@ function register() {
 function unregister() {
 	os.inputText({
 		title: i18n.ts.password,
-		type: 'password'
+		type: 'password',
 	}).then(({ canceled, result: password }) => {
 		if (canceled) return;
 		os.api('i/2fa/unregister', {
-			password: password
+			password,
 		}).then(() => {
 			usePasswordLessLogin.value = false;
 			updatePasswordLessLogin();
@@ -117,7 +118,7 @@ function unregister() {
 
 function submit() {
 	os.api('i/2fa/done', {
-		token: token.value
+		token: token.value,
 	}).then(() => {
 		os.success();
 		$i!.twoFactorEnabled = true;
@@ -137,7 +138,7 @@ function registerKey() {
 		challengeId: registration.value.challengeId,
 		// we convert each 16 bits to a string to serialise
 		clientDataJSON: stringify(registration.value.credential.response.clientDataJSON),
-		attestationObject: hexify(registration.value.credential.response.attestationObject)
+		attestationObject: hexify(registration.value.credential.response.attestationObject),
 	}).then(key => {
 		registration.value = null;
 		key.lastUsed = new Date();
@@ -148,12 +149,12 @@ function registerKey() {
 function unregisterKey(key) {
 	os.inputText({
 		title: i18n.ts.password,
-		type: 'password'
+		type: 'password',
 	}).then(({ canceled, result: password }) => {
 		if (canceled) return;
 		return os.api('i/2fa/remove-key', {
 			password,
-			credentialId: key.id
+			credentialId: key.id,
 		}).then(() => {
 			usePasswordLessLogin.value = false;
 			updatePasswordLessLogin();
@@ -166,11 +167,11 @@ function unregisterKey(key) {
 function addSecurityKey() {
 	os.inputText({
 		title: i18n.ts.password,
-		type: 'password'
+		type: 'password',
 	}).then(({ canceled, result: password }) => {
 		if (canceled) return;
 		os.api('i/2fa/register-key', {
-			password
+			password,
 		}).then(reg => {
 			registration.value = {
 				password,
@@ -180,7 +181,7 @@ function addSecurityKey() {
 					challenge: byteify(reg!.challenge, 'base64'),
 					rp: {
 						id: hostname,
-						name: 'Misskey'
+						name: 'Misskey',
 					},
 					user: {
 						id: byteify($i!.id, 'ascii'),
@@ -188,13 +189,13 @@ function addSecurityKey() {
 						displayName: $i!.name,
 					},
 					pubKeyCredParams: [{ alg: -7, type: 'public-key' }],
-					timeout: 60000,
-					attestation: 'direct'
+					timeout: MINUTE,
+					attestation: 'direct',
 				},
-				saving: true
+				saving: true,
 			};
 			return navigator.credentials.create({
-				publicKey: registration.value.publicKeyOptions
+				publicKey: registration.value.publicKeyOptions,
 			});
 		}).then(credential => {
 			registration.value.credential = credential;
@@ -210,7 +211,7 @@ function addSecurityKey() {
 
 async function updatePasswordLessLogin() {
 	await os.api('i/2fa/password-less', {
-		value: !!usePasswordLessLogin.value
+		value: !!usePasswordLessLogin.value,
 	});
 }
 </script>

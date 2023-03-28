@@ -10,13 +10,7 @@ export const meta = {
 
 	description: 'Show statistics about a user.',
 
-	errors: {
-		noSuchUser: {
-			message: 'No such user.',
-			code: 'NO_SUCH_USER',
-			id: '9e638e45-3b25-4ef7-8f95-07e8498f1819',
-		},
-	},
+	errors: ['NO_SUCH_USER'],
 
 	res: {
 		type: 'object',
@@ -116,10 +110,10 @@ export const paramDef = {
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, paramDef, async (ps, me) => {
+export default define(meta, paramDef, async (ps) => {
 	const user = await Users.findOneBy({ id: ps.userId });
 	if (user == null) {
-		throw new ApiError(meta.errors.noSuchUser);
+		throw new ApiError('NO_SUCH_USER');
 	}
 
 	const result = await awaitAll({
@@ -183,7 +177,7 @@ export default define(meta, paramDef, async (ps, me) => {
 		driveFilesCount: DriveFiles.createQueryBuilder('file')
 			.where('file.userId = :userId', { userId: user.id })
 			.getCount(),
-		driveUsage: DriveFiles.calcDriveUsageOf(user),
+		driveUsage: DriveFiles.calcDriveUsageOf(user.id),
 	});
 
 	result.followingCount = result.localFollowingCount + result.remoteFollowingCount;

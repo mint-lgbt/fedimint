@@ -1,4 +1,5 @@
 import { Schema } from '@/misc/schema.js';
+import { errors } from './error.js';
 
 import * as ep___admin_meta from './endpoints/admin/meta.js';
 import * as ep___admin_abuseUserReports from './endpoints/admin/abuse-user-reports.js';
@@ -33,7 +34,6 @@ import * as ep___admin_getTableStats from './endpoints/admin/get-table-stats.js'
 import * as ep___admin_invite from './endpoints/admin/invite.js';
 import * as ep___admin_moderators_add from './endpoints/admin/moderators/add.js';
 import * as ep___admin_moderators_remove from './endpoints/admin/moderators/remove.js';
-import * as ep___admin_promo_create from './endpoints/admin/promo/create.js';
 import * as ep___admin_queue_clear from './endpoints/admin/queue/clear.js';
 import * as ep___admin_queue_deliverDelayed from './endpoints/admin/queue/deliver-delayed.js';
 import * as ep___admin_queue_inboxDelayed from './endpoints/admin/queue/inbox-delayed.js';
@@ -54,7 +54,6 @@ import * as ep___admin_unsilenceUser from './endpoints/admin/unsilence-user.js';
 import * as ep___admin_unsuspendUser from './endpoints/admin/unsuspend-user.js';
 import * as ep___admin_updateMeta from './endpoints/admin/update-meta.js';
 import * as ep___admin_vacuum from './endpoints/admin/vacuum.js';
-import * as ep___admin_deleteAccount from './endpoints/admin/delete-account.js';
 import * as ep___announcements from './endpoints/announcements.js';
 import * as ep___antennas_create from './endpoints/antennas/create.js';
 import * as ep___antennas_delete from './endpoints/antennas/delete.js';
@@ -67,6 +66,7 @@ import * as ep___ap_show from './endpoints/ap/show.js';
 import * as ep___app_create from './endpoints/app/create.js';
 import * as ep___app_show from './endpoints/app/show.js';
 import * as ep___auth_accept from './endpoints/auth/accept.js';
+import * as ep___auth_deny from './endpoints/auth/deny.js';
 import * as ep___auth_session_generate from './endpoints/auth/session/generate.js';
 import * as ep___auth_session_show from './endpoints/auth/session/show.js';
 import * as ep___auth_session_userkey from './endpoints/auth/session/userkey.js';
@@ -138,15 +138,6 @@ import * as ep___following_requests_accept from './endpoints/following/requests/
 import * as ep___following_requests_cancel from './endpoints/following/requests/cancel.js';
 import * as ep___following_requests_list from './endpoints/following/requests/list.js';
 import * as ep___following_requests_reject from './endpoints/following/requests/reject.js';
-import * as ep___gallery_featured from './endpoints/gallery/featured.js';
-import * as ep___gallery_popular from './endpoints/gallery/popular.js';
-import * as ep___gallery_posts from './endpoints/gallery/posts.js';
-import * as ep___gallery_posts_create from './endpoints/gallery/posts/create.js';
-import * as ep___gallery_posts_delete from './endpoints/gallery/posts/delete.js';
-import * as ep___gallery_posts_like from './endpoints/gallery/posts/like.js';
-import * as ep___gallery_posts_show from './endpoints/gallery/posts/show.js';
-import * as ep___gallery_posts_unlike from './endpoints/gallery/posts/unlike.js';
-import * as ep___gallery_posts_update from './endpoints/gallery/posts/update.js';
 import * as ep___getOnlineUsersCount from './endpoints/get-online-users-count.js';
 import * as ep___hashtags_list from './endpoints/hashtags/list.js';
 import * as ep___hashtags_search from './endpoints/hashtags/search.js';
@@ -171,8 +162,6 @@ import * as ep___i_exportMute from './endpoints/i/export-mute.js';
 import * as ep___i_exportNotes from './endpoints/i/export-notes.js';
 import * as ep___i_exportUserLists from './endpoints/i/export-user-lists.js';
 import * as ep___i_favorites from './endpoints/i/favorites.js';
-import * as ep___i_gallery_likes from './endpoints/i/gallery/likes.js';
-import * as ep___i_gallery_posts from './endpoints/i/gallery/posts.js';
 import * as ep___i_getWordMutedNotesCount from './endpoints/i/get-word-muted-notes-count.js';
 import * as ep___i_importBlocking from './endpoints/i/import-blocking.js';
 import * as ep___i_importFollowing from './endpoints/i/import-following.js';
@@ -215,6 +204,9 @@ import * as ep___miauth_genToken from './endpoints/miauth/gen-token.js';
 import * as ep___mute_create from './endpoints/mute/create.js';
 import * as ep___mute_delete from './endpoints/mute/delete.js';
 import * as ep___mute_list from './endpoints/mute/list.js';
+import * as ep___renote_mute_create from './endpoints/renote-mute/create.js';
+import * as ep___renote_mute_delete from './endpoints/renote-mute/delete.js';
+import * as ep___renote_mute_list from './endpoints/renote-mute/list.js';
 import * as ep___my_apps from './endpoints/my/apps.js';
 import * as ep___notes from './endpoints/notes.js';
 import * as ep___notes_children from './endpoints/notes/children.js';
@@ -261,7 +253,6 @@ import * as ep___pages_unlike from './endpoints/pages/unlike.js';
 import * as ep___pages_update from './endpoints/pages/update.js';
 import * as ep___ping from './endpoints/ping.js';
 import * as ep___pinnedUsers from './endpoints/pinned-users.js';
-import * as ep___promo_read from './endpoints/promo/read.js';
 import * as ep___requestResetPassword from './endpoints/request-reset-password.js';
 import * as ep___resetDb from './endpoints/reset-db.js';
 import * as ep___resetPassword from './endpoints/reset-password.js';
@@ -269,14 +260,11 @@ import * as ep___serverInfo from './endpoints/server-info.js';
 import * as ep___stats from './endpoints/stats.js';
 import * as ep___sw_register from './endpoints/sw/register.js';
 import * as ep___sw_unregister from './endpoints/sw/unregister.js';
-import * as ep___test from './endpoints/test.js';
 import * as ep___username_available from './endpoints/username/available.js';
 import * as ep___users from './endpoints/users.js';
 import * as ep___users_clips from './endpoints/users/clips.js';
 import * as ep___users_followers from './endpoints/users/followers.js';
 import * as ep___users_following from './endpoints/users/following.js';
-import * as ep___users_gallery_posts from './endpoints/users/gallery/posts.js';
-import * as ep___users_getFrequentlyRepliedUsers from './endpoints/users/get-frequently-replied-users.js';
 import * as ep___users_groups_create from './endpoints/users/groups/create.js';
 import * as ep___users_groups_delete from './endpoints/users/groups/delete.js';
 import * as ep___users_groups_invitations_accept from './endpoints/users/groups/invitations/accept.js';
@@ -342,7 +330,6 @@ const eps = [
 	['admin/invite', ep___admin_invite],
 	['admin/moderators/add', ep___admin_moderators_add],
 	['admin/moderators/remove', ep___admin_moderators_remove],
-	['admin/promo/create', ep___admin_promo_create],
 	['admin/queue/clear', ep___admin_queue_clear],
 	['admin/queue/deliver-delayed', ep___admin_queue_deliverDelayed],
 	['admin/queue/inbox-delayed', ep___admin_queue_inboxDelayed],
@@ -363,7 +350,6 @@ const eps = [
 	['admin/unsuspend-user', ep___admin_unsuspendUser],
 	['admin/update-meta', ep___admin_updateMeta],
 	['admin/vacuum', ep___admin_vacuum],
-	['admin/delete-account', ep___admin_deleteAccount],
 	['announcements', ep___announcements],
 	['antennas/create', ep___antennas_create],
 	['antennas/delete', ep___antennas_delete],
@@ -376,6 +362,7 @@ const eps = [
 	['app/create', ep___app_create],
 	['app/show', ep___app_show],
 	['auth/accept', ep___auth_accept],
+	['auth/deny', ep___auth_deny],
 	['auth/session/generate', ep___auth_session_generate],
 	['auth/session/show', ep___auth_session_show],
 	['auth/session/userkey', ep___auth_session_userkey],
@@ -447,15 +434,6 @@ const eps = [
 	['following/requests/cancel', ep___following_requests_cancel],
 	['following/requests/list', ep___following_requests_list],
 	['following/requests/reject', ep___following_requests_reject],
-	['gallery/featured', ep___gallery_featured],
-	['gallery/popular', ep___gallery_popular],
-	['gallery/posts', ep___gallery_posts],
-	['gallery/posts/create', ep___gallery_posts_create],
-	['gallery/posts/delete', ep___gallery_posts_delete],
-	['gallery/posts/like', ep___gallery_posts_like],
-	['gallery/posts/show', ep___gallery_posts_show],
-	['gallery/posts/unlike', ep___gallery_posts_unlike],
-	['gallery/posts/update', ep___gallery_posts_update],
 	['get-online-users-count', ep___getOnlineUsersCount],
 	['hashtags/list', ep___hashtags_list],
 	['hashtags/search', ep___hashtags_search],
@@ -480,8 +458,6 @@ const eps = [
 	['i/export-notes', ep___i_exportNotes],
 	['i/export-user-lists', ep___i_exportUserLists],
 	['i/favorites', ep___i_favorites],
-	['i/gallery/likes', ep___i_gallery_likes],
-	['i/gallery/posts', ep___i_gallery_posts],
 	['i/get-word-muted-notes-count', ep___i_getWordMutedNotesCount],
 	['i/import-blocking', ep___i_importBlocking],
 	['i/import-following', ep___i_importFollowing],
@@ -524,6 +500,9 @@ const eps = [
 	['mute/create', ep___mute_create],
 	['mute/delete', ep___mute_delete],
 	['mute/list', ep___mute_list],
+	['renote-mute/create', ep___renote_mute_create],
+	['renote-mute/delete', ep___renote_mute_delete],
+	['renote-mute/list', ep___renote_mute_list],
 	['my/apps', ep___my_apps],
 	['notes', ep___notes],
 	['notes/children', ep___notes_children],
@@ -570,7 +549,6 @@ const eps = [
 	['pages/update', ep___pages_update],
 	['ping', ep___ping],
 	['pinned-users', ep___pinnedUsers],
-	['promo/read', ep___promo_read],
 	['request-reset-password', ep___requestResetPassword],
 	['reset-db', ep___resetDb],
 	['reset-password', ep___resetPassword],
@@ -578,14 +556,11 @@ const eps = [
 	['stats', ep___stats],
 	['sw/register', ep___sw_register],
 	['sw/unregister', ep___sw_unregister],
-	['test', ep___test],
 	['username/available', ep___username_available],
 	['users', ep___users],
 	['users/clips', ep___users_clips],
 	['users/followers', ep___users_followers],
 	['users/following', ep___users_following],
-	['users/gallery/posts', ep___users_gallery_posts],
-	['users/get-frequently-replied-users', ep___users_getFrequentlyRepliedUsers],
 	['users/groups/create', ep___users_groups_create],
 	['users/groups/delete', ep___users_groups_delete],
 	['users/groups/invitations/accept', ep___users_groups_invitations_accept],
@@ -623,13 +598,7 @@ export interface IEndpointMeta {
 
 	readonly tags?: ReadonlyArray<string>;
 
-	readonly errors?: {
-		readonly [key: string]: {
-			readonly message: string;
-			readonly code: string;
-			readonly id: string;
-		};
-	};
+	readonly errors?: ReadonlyArray<keyof typeof errors>;
 
 	readonly res?: Schema;
 
@@ -707,6 +676,32 @@ export interface IEndpointMeta {
 	 * 正常応答をキャッシュ (Cache-Control: public) する秒数
 	 */
 	readonly cacheSec?: number;
+
+	/**
+	 * API v2 options
+	 */
+	readonly v2?: {
+
+		/**
+		 * HTTP verb this endpoint supports
+		 */
+		readonly method: 'get' | 'put' | 'post' | 'patch' | 'delete';
+
+		/**
+		 * Path alias for v2 endpoint
+		 * 
+		 * @example (v0) /api/notes/create -> /api/v2/notes
+		 */
+		readonly alias?: string;
+
+		/**
+		 * If any path parameters were used, they have to be listed here.
+		 * Otherwise they will show up as query parameters in the documentation.
+		 *
+		 * Note: Path parameters cannot be optional.
+		 */
+		readonly pathParamers?: string[];
+	};
 }
 
 export interface IEndpoint {

@@ -14,12 +14,12 @@ services:
       - internal_network
       - external_network
     volumes:
-      - ./files:/misskey/files
-      - ./.config:/misskey/.config:ro
+      - ./files:/foundkey/files
+      - ./.config:/foundkey/.config:ro
 
   redis:
     restart: always
-    image: redis:4.0-alpine
+    image: redis:7.0-alpine
     networks:
       - internal_network
     volumes:
@@ -27,7 +27,7 @@ services:
 
   db:
     restart: always
-    image: postgres:12.2-alpine
+    image: postgres:14.5-alpine
     networks:
       - internal_network
     env_file:

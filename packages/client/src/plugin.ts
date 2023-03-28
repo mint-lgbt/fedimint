@@ -11,14 +11,14 @@ export function install(plugin) {
 	console.info('Plugin installed:', plugin.name, 'v' + plugin.version);
 
 	const aiscript = new AiScript(createPluginEnv({
-		plugin: plugin,
-		storageKey: 'plugins:' + plugin.id
+		plugin,
+		storageKey: 'plugins:' + plugin.id,
 	}), {
 		in: (q) => {
 			return new Promise(ok => {
 				inputText({
 					title: q,
-				}).then(({ canceled, result: a }) => {
+				}).then(({ result: a }) => {
 					ok(a);
 				});
 			});
@@ -26,8 +26,7 @@ export function install(plugin) {
 		out: (value) => {
 			console.log(value);
 		},
-		log: (type, params) => {
-		},
+		log: (type, params) => {},
 	});
 
 	initPlugin({ plugin, aiscript });
@@ -86,7 +85,7 @@ function registerPostFormAction({ pluginId, title, handler }) {
 			pluginContexts.get(pluginId).execFn(handler, [utils.jsToVal(form), values.FN_NATIVE(([key, value]) => {
 				update(key.value, value.value);
 			})]);
-		}
+		},
 	});
 }
 
@@ -94,7 +93,7 @@ function registerUserAction({ pluginId, title, handler }) {
 	userActions.push({
 		title, handler: (user) => {
 			pluginContexts.get(pluginId).execFn(handler, [utils.jsToVal(user)]);
-		}
+		},
 	});
 }
 
@@ -102,7 +101,7 @@ function registerNoteAction({ pluginId, title, handler }) {
 	noteActions.push({
 		title, handler: (note) => {
 			pluginContexts.get(pluginId).execFn(handler, [utils.jsToVal(note)]);
-		}
+		},
 	});
 }
 
@@ -110,7 +109,7 @@ function registerNoteViewInterruptor({ pluginId, handler }) {
 	noteViewInterruptors.push({
 		handler: async (note) => {
 			return utils.valToJs(await pluginContexts.get(pluginId).execFn(handler, [utils.jsToVal(note)]));
-		}
+		},
 	});
 }
 
@@ -118,6 +117,6 @@ function registerNotePostInterruptor({ pluginId, handler }) {
 	notePostInterruptors.push({
 		handler: async (note) => {
 			return utils.valToJs(await pluginContexts.get(pluginId).execFn(handler, [utils.jsToVal(note)]));
-		}
+		},
 	});
 }

@@ -1,6 +1,6 @@
 <template>
 <MkStickyContainer>
-	<template #header><MkPageHeader :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader/></template>
 	<MkSpacer :content-max="800">
 		<MkPagination v-slot="{items}" :pagination="pagination" class="ruryvtyk _content">
 			<section v-for="(announcement, i) in items" :key="announcement.id" class="_card announcement">
@@ -10,7 +10,7 @@
 					<img v-if="announcement.imageUrl" :src="announcement.imageUrl"/>
 				</div>
 				<div v-if="$i && !announcement.isRead" class="_footer">
-					<MkButton primary @click="read(items, announcement, i)"><i class="fas fa-check"></i> {{ $ts.gotIt }}</MkButton>
+					<MkButton primary @click="read(items, announcement, i)"><i class="fas fa-check"></i> {{ i18n.ts.gotIt }}</MkButton>
 				</div>
 			</section>
 		</MkPagination>
@@ -19,7 +19,6 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import MkPagination from '@/components/ui/pagination.vue';
 import MkButton from '@/components/ui/button.vue';
 import * as os from '@/os';
@@ -39,10 +38,6 @@ function read(items, announcement, i) {
 	};
 	os.api('i/read-announcement', { announcementId: announcement.id });
 }
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.announcements,

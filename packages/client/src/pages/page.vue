@@ -1,20 +1,15 @@
 <template>
 <MkStickyContainer>
-	<template #header><MkPageHeader :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader/></template>
 	<MkSpacer :content-max="700">
 		<transition :name="$store.state.animation ? 'fade' : ''" mode="out-in">
 			<div v-if="page" :key="page.id" v-size="{ max: [450] }" class="xcukqgmh">
 				<div class="_block main">
-					<!--
-				<div class="header">
-					<h1>{{ page.title }}</h1>
-				</div>
-				-->
 					<div class="banner">
 						<img v-if="page.eyeCatchingImageId" :src="page.eyeCatchingImage.url"/>
 					</div>
-					<div class="content">
-						<XPage :page="page"/>
+					<div class="content" :class="{ center: page.alignCenter, serif: page.font === 'serif' }">
+						<Mfm :text="page.text" :is-note="false"/>
 					</div>
 					<div class="actions">
 						<div class="like">
@@ -22,8 +17,8 @@
 							<MkButton v-else v-tooltip="i18n.ts._pages.like" class="button" @click="like()"><i class="far fa-heart"></i><span v-if="page.likedCount > 0" class="count">{{ page.likedCount }}</span></MkButton>
 						</div>
 						<div class="other">
-							<button v-tooltip="i18n.ts.shareWithNote" v-click-anime class="_button" @click="shareWithNote"><i class="fas fa-retweet fa-fw"></i></button>
-							<button v-tooltip="i18n.ts.share" v-click-anime class="_button" @click="share"><i class="fas fa-share-alt fa-fw"></i></button>
+							<button v-tooltip="i18n.ts.shareWithNote" class="_button" @click="shareWithNote"><i class="fas fa-retweet fa-fw"></i></button>
+							<button v-tooltip="i18n.ts.share" class="_button" @click="share"><i class="fas fa-share-alt fa-fw"></i></button>
 						</div>
 					</div>
 					<div class="user">
@@ -63,7 +58,6 @@
 
 <script lang="ts" setup>
 import { computed, watch } from 'vue';
-import XPage from '@/components/page/page.vue';
 import MkButton from '@/components/ui/button.vue';
 import * as os from '@/os';
 import { url } from '@/config';
@@ -147,10 +141,6 @@ function pin(pin) {
 
 watch(() => path, fetchPage, { immediate: true });
 
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
-
 definePageMetadata(computed(() => page ? {
 	title: computed(() => page.title || page.name),
 	avatar: page.user,
@@ -196,6 +186,16 @@ definePageMetadata(computed(() => page ? {
 		> .content {
 			margin-top: 1em;
 			padding: 1em;
+
+		    &.serif {
+		        > div {
+		            font-family: serif;
+		        }
+		    }
+
+		    &.center {
+		        text-align: center;
+		    }
 		}
 
 		> .actions {

@@ -15,12 +15,19 @@
 			</div>
 		</div>
 		<div class="hdrwpsaf fullwidth">
-			<header>{{ image.name }}</header>
-			<img :src="image.url" :alt="image.comment" :title="image.comment" @click="modal.close()"/>
+			<header>{{ file.name }}</header>
+			<img v-if="file.type.startsWith('image/')" :src="file.url" @click="modal.close()"/>
+			<video v-else-if="file.type.startsWith('video/')" controls>
+				<source :src="file.url" :type="file.type">
+			</video>
+			<audio v-else-if="file.type.startsWith('audio/')" controls>
+				<source :src="file.url" :type="file.type">
+			</audio>
+			<a v-else :href="file.url">{{ file.url }}</a>
 			<footer>
-				<span>{{ image.type }}</span>
-				<span>{{ bytes(image.size) }}</span>
-				<span v-if="image.properties && image.properties.width">{{ number(image.properties.width) }}px × {{ number(image.properties.height) }}px</span>
+				<span>{{ file.type }}</span>
+				<span>{{ bytes(file.size) }}</span>
+				<span v-if="file.properties?.width">{{ number(file.properties.width) }}px × {{ number(file.properties.height) }}px</span>
 			</footer>
 		</div>
 	</div>
@@ -30,7 +37,7 @@
 <script lang="ts" setup>
 import { onBeforeUnmount, onMounted, computed } from 'vue';
 import { length } from 'stringz';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import MkModal from '@/components/ui/modal.vue';
 import MkButton from '@/components/ui/button.vue';
 import bytes from '@/filters/bytes';
@@ -43,7 +50,7 @@ type Input = {
 };
 
 const props = withDefaults(defineProps<{
-	image: misskey.entities.DriveFile;
+	file: foundkey.entities.DriveFile;
 	title?: string;
 	input: Input;
 	showOkButton: boolean;
@@ -97,8 +104,8 @@ function onInputKeydown(evt: KeyboardEvent): void {
 }
 
 const remainingLength = computed((): number => {
-	if (typeof inputValue !== 'string') return 512;
-	return 512 - length(inputValue);
+	if (typeof inputValue !== 'string') return 2048;
+	return 2048 - length(inputValue);
 });
 
 onMounted(() => {

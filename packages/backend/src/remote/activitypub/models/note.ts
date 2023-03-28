@@ -4,7 +4,7 @@ import config from '@/config/index.js';
 import post from '@/services/note/create.js';
 import { CacheableRemoteUser } from '@/models/entities/user.js';
 import { unique, toArray, toSingle } from '@/prelude/array.js';
-import vote from '@/services/note/polls/vote.js';
+import { vote } from '@/services/note/polls/vote.js';
 import { DriveFile } from '@/models/entities/drive-file.js';
 import { deliverQuestionUpdate } from '@/services/note/polls/update.js';
 import { extractDbHost, toPuny } from '@/misc/convert-host.js';
@@ -12,27 +12,23 @@ import { Emojis, Polls, MessagingMessages } from '@/models/index.js';
 import { Note } from '@/models/entities/note.js';
 import { Emoji } from '@/models/entities/emoji.js';
 import { genId } from '@/misc/gen-id.js';
-import { fetchMeta } from '@/misc/fetch-meta.js';
 import { getApLock } from '@/misc/app-lock.js';
 import { createMessage } from '@/services/messages/create.js';
 import { StatusError } from '@/misc/fetch.js';
+import { fromHtml } from '@/mfm/from-html.js';
+import { shouldBlockInstance } from '@/misc/should-block-instance.js';
+import { Resolver } from '@/remote/activitypub/resolver.js';
 import { parseAudience } from '../audience.js';
 import { IObject, getOneApId, getApId, getOneApHrefNullable, validPost, IPost, isEmoji, getApType } from '../type.js';
-import DbResolver from '../db-resolver.js';
-import Resolver from '../resolver.js';
-import { htmlToMfm } from '../misc/html-to-mfm.js';
+import { DbResolver } from '../db-resolver.js';
 import { apLogger } from '../logger.js';
 import { resolvePerson } from './person.js';
 import { resolveImage } from './image.js';
-import { extractApHashtags } from './tag.js';
+import { extractApHashtags, extractQuoteUrl } from './tag.js';
 import { extractPollFromQuestion } from './question.js';
 import { extractApMentions } from './mention.js';
 
-const logger = apLogger;
-
-export function validateNote(object: any, uri: string) {
-	const expectHost = extractDbHost(uri);
-
+export function validateNote(object: IObject): Error | null {
 	if (object == null) {
 		return new Error('invalid Note: object is null');
 	}
@@ -41,21 +37,29 @@ export function validateNote(object: any, uri: string) {
 		return new Error(`invalid Note: invalid object type ${getApType(object)}`);
 	}
 
-	if (object.id && extractDbHost(object.id) !== expectHost) {
-		return new Error(`invalid Note: id has different host. expected: ${expectHost}, actual: ${extractDbHost(object.id)}`);
+	const id = getApId(object);
+	if (id == null) {
+		// Only transient objects or anonymous objects may not have an id or an id that is explicitly null.
+		// We consider all Notes as not transient and not anonymous so require ids for them.
+		return new Error(`invalid Note: id required but not present`);
 	}
 
-	if (object.attributedTo && extractDbHost(getOneApId(object.attributedTo)) !== expectHost) {
-		return new Error(`invalid Note: attributedTo has different host. expected: ${expectHost}, actual: ${extractDbHost(object.attributedTo)}`);
+	// Check that the server is authorized to act on behalf of this author.
+	const expectHost = extractDbHost(id);
+	const attributedToHost = object.attributedTo
+		? extractDbHost(getOneApId(object.attributedTo))
+		: null;
+	if (attributedToHost !== expectHost) {
+		return new Error(`invalid Note: attributedTo has different host. expected: ${expectHost}, actual: ${attributedToHost}`);
 	}
 
 	return null;
 }
 
 /**
- * Noteをフェッチします。
+ * Fetch Note.
  *
- * Misskeyに対象のNoteが登録されていればそれを返します。
+ * Returns the target Note if it is registered in FoundKey.
  */
 export async function fetchNote(object: string | IObject): Promise<Note | null> {
 	const dbResolver = new DbResolver();
@@ -65,15 +69,12 @@ export async function fetchNote(object: string | IObject): Promise<Note | null> 
 /**
  * Noteを作成します。
  */
-export async function createNote(value: string | IObject, resolver?: Resolver, silent = false): Promise<Note | null> {
-	if (resolver == null) resolver = new Resolver();
+export async function createNote(value: string | IObject, resolver: Resolver, silent = false): Promise<Note | null> {
+	const object: IObject = await resolver.resolve(value);
 
-	const object: any = await resolver.resolve(value);
-
-	const entryUri = getApId(value);
-	const err = validateNote(object, entryUri);
+	const err = validateNote(object);
 	if (err) {
-		logger.error(`${err.message}`, {
+		apLogger.error(`${err.message}`, {
 			resolver: {
 				history: resolver.getHistory(),
 			},
@@ -85,9 +86,9 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 
 	const note: IPost = object;
 
-	logger.debug(`Note fetched: ${JSON.stringify(note, null, 2)}`);
+	apLogger.debug(`Note fetched: ${JSON.stringify(note, null, 2)}`);
 
-	logger.info(`Creating the Note: ${note.id}`);
+	apLogger.info(`Creating the Note: ${note.id}`);
 
 	// 投稿者をフェッチ
 	const actor = await resolvePerson(getOneApId(note.attributedTo), resolver) as CacheableRemoteUser;
@@ -111,7 +112,7 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 
 	let isTalk = note._misskey_talk && visibility === 'specified';
 
-	const apMentions = await extractApMentions(note.tag);
+	const apMentions = await extractApMentions(note.tag, resolver);
 	const apHashtags = await extractApHashtags(note.tag);
 
 	// 添付ファイル
@@ -123,7 +124,7 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 	note.attachment = Array.isArray(note.attachment) ? note.attachment : note.attachment ? [note.attachment] : [];
 	const files = note.attachment
 		.map(attach => attach.sensitive = note.sensitive)
-		? (await Promise.all(note.attachment.map(x => limit(() => resolveImage(actor, x)) as Promise<DriveFile>)))
+		? (await Promise.all(note.attachment.map(x => limit(() => resolveImage(actor, x, resolver)) as Promise<DriveFile>)))
 			.filter(image => image != null)
 		: [];
 
@@ -131,7 +132,7 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 	const reply: Note | null = note.inReplyTo
 		? await resolveNote(note.inReplyTo, resolver).then(x => {
 			if (x == null) {
-				logger.warn('Specified inReplyTo, but nout found');
+				apLogger.warn('Specified inReplyTo, but nout found');
 				throw new Error('inReplyTo not found');
 			} else {
 				return x;
@@ -141,22 +142,22 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 			const uri = getApId(note.inReplyTo);
 			if (uri.startsWith(config.url + '/')) {
 				const id = uri.split('/').pop();
-				const talk = await MessagingMessages.findOneBy({ id });
+				const talk = await MessagingMessages.countBy({ id });
 				if (talk) {
 					isTalk = true;
 					return null;
 				}
 			}
 
-			logger.warn(`Error in inReplyTo ${note.inReplyTo} - ${e.statusCode || e}`);
+			apLogger.warn(`Error in inReplyTo ${note.inReplyTo} - ${e.statusCode || e}`);
 			throw e;
 		})
 		: null;
 
-	// 引用
 	let quote: Note | undefined | null;
+	const quoteUrl = extractQuoteUrl(note.tag);
 
-	if (note._misskey_quote || note.quoteUrl) {
+	if (quoteUrl || note._misskey_quote || note.quoteUri) {
 		const tryResolveNote = async (uri: string): Promise<{
 			status: 'ok';
 			res: Note | null;
@@ -165,7 +166,7 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 		}> => {
 			if (typeof uri !== 'string' || !uri.match(/^https?:/)) return { status: 'permerror' };
 			try {
-				const res = await resolveNote(uri);
+				const res = await resolveNote(uri, resolver);
 				if (res) {
 					return {
 						status: 'ok',
@@ -183,10 +184,16 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 			}
 		};
 
-		const uris = unique([note._misskey_quote, note.quoteUrl].filter((x): x is string => typeof x === 'string'));
-		const results = await Promise.all(uris.map(uri => tryResolveNote(uri)));
-
-		quote = results.filter((x): x is { status: 'ok', res: Note | null } => x.status === 'ok').map(x => x.res).find(x => x);
+		const uris = unique([quoteUrl, note._misskey_quote, note.quoteUri].filter((x): x is string => typeof x === 'string'));
+		// check the urls sequentially and abort early to not do unnecessary HTTP requests
+		// picks the first one that works
+		for (const uri in uris) {
+			const res = await tryResolveNote(uri);
+			if (res.status === 'ok') {
+				quote = res.res;
+				break;
+			}
+		}
 		if (!quote) {
 			if (results.some(x => x.status === 'temperror')) {
 				throw new Error('quote resolve failed');
@@ -196,14 +203,14 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 
 	const cw = note.summary === '' ? null : note.summary;
 
-	// テキストのパース
+	// text parsing
 	let text: string | null = null;
-	if (note.source?.mediaType === 'text/x.misskeymarkdown' && typeof note.source?.content === 'string') {
+	if (note.source?.mediaType === 'text/x.misskeymarkdown' && typeof note.source.content === 'string') {
 		text = note.source.content;
 	} else if (typeof note._misskey_content !== 'undefined') {
 		text = note._misskey_content;
 	} else if (typeof note.content === 'string') {
-		text = htmlToMfm(note.content, note.tag);
+		text = fromHtml(note.content, quote?.uri);
 	}
 
 	// vote
@@ -212,9 +219,9 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 
 		const tryCreateVote = async (name: string, index: number): Promise<null> => {
 			if (poll.expiresAt && Date.now() > new Date(poll.expiresAt).getTime()) {
-				logger.warn(`vote to expired poll from AP: actor=${actor.username}@${actor.host}, note=${note.id}, choice=${name}`);
+				apLogger.warn(`vote to expired poll from AP: actor=${actor.username}@${actor.host}, note=${note.id}, choice=${name}`);
 			} else if (index >= 0) {
-				logger.info(`vote from AP: actor=${actor.username}@${actor.host}, note=${note.id}, choice=${name}`);
+				apLogger.info(`vote from AP: actor=${actor.username}@${actor.host}, note=${note.id}, choice=${name}`);
 				await vote(actor, reply, index);
 
 				// リモートフォロワーにUpdate配信
@@ -229,7 +236,7 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 	}
 
 	const emojis = await extractEmojis(note.tag || [], actor.host).catch(e => {
-		logger.info(`extractEmojis: ${e}`);
+		apLogger.info(`extractEmojis: ${e}`);
 		return [] as Emoji[];
 	});
 
@@ -265,23 +272,22 @@ export async function createNote(value: string | IObject, resolver?: Resolver, s
 }
 
 /**
- * Noteを解決します。
+ * Resolve Note.
  *
- * Misskeyに対象のNoteが登録されていればそれを返し、そうでなければ
- * リモートサーバーからフェッチしてMisskeyに登録しそれを返します。
+ * If the target Note is registered in FoundKey, return it; otherwise, fetch it from a remote server and return it.
+ * Fetch the Note from the remote server, register it in FoundKey, and return it.
  */
-export async function resolveNote(value: string | IObject, resolver?: Resolver): Promise<Note | null> {
+export async function resolveNote(value: string | IObject, resolver: Resolver): Promise<Note | null> {
 	const uri = typeof value === 'string' ? value : value.id;
 	if (uri == null) throw new Error('missing uri');
 
-	// ブロックしてたら中断
-	const meta = await fetchMeta();
-	if (meta.blockedHosts.includes(extractDbHost(uri))) throw new StatusError('host blocked', 451, `host ${extractDbHost(uri)} is blocked`);
+	// Interrupt if blocked.
+	if (await shouldBlockInstance(extractDbHost(uri))) throw new StatusError('host blocked', 451, `host ${extractDbHost(uri)} is blocked`);
 
 	const unlock = await getApLock(uri);
 
 	try {
-		//#region このサーバーに既に登録されていたらそれを返す
+		//#region If already registered on this server, return it.
 		const exist = await fetchNote(uri);
 
 		if (exist) {
@@ -302,8 +308,8 @@ export async function resolveNote(value: string | IObject, resolver?: Resolver):
 	}
 }
 
-export async function extractEmojis(tags: IObject | IObject[], host: string): Promise<Emoji[]> {
-	host = toPuny(host);
+export async function extractEmojis(tags: IObject | IObject[], idnHost: string): Promise<Emoji[]> {
+	const host = toPuny(idnHost);
 
 	if (!tags) return [];
 
@@ -343,7 +349,7 @@ export async function extractEmojis(tags: IObject | IObject[], host: string): Pr
 			return exists;
 		}
 
-		logger.info(`register emoji host=${host}, name=${name}`);
+		apLogger.info(`register emoji host=${host}, name=${name}`);
 
 		return await Emojis.insert({
 			id: genId(),

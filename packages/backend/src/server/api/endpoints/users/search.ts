@@ -1,4 +1,5 @@
 import { Brackets } from 'typeorm';
+import { MONTH } from '@/const.js';
 import { UserProfiles, Users } from '@/models/index.js';
 import { User } from '@/models/entities/user.js';
 import define from '../../define.js';
@@ -35,7 +36,7 @@ export const paramDef = {
 
 // eslint-disable-next-line import/no-default-export
 export default define(meta, paramDef, async (ps, me) => {
-	const activeThreshold = new Date(Date.now() - (1000 * 60 * 60 * 24 * 30)); // 30日
+	const activeThreshold = new Date(Date.now() - MONTH);
 
 	const isUsername = ps.query.startsWith('@');
 
@@ -48,7 +49,7 @@ export default define(meta, paramDef, async (ps, me) => {
 				.where('user.updatedAt IS NULL')
 				.orWhere('user.updatedAt > :activeThreshold', { activeThreshold });
 			}))
-			.andWhere('user.isSuspended = FALSE');
+			.andWhere('NOT user.isSuspended');
 
 		if (ps.origin === 'local') {
 			usernameQuery.andWhere('user.host IS NULL');
@@ -63,7 +64,7 @@ export default define(meta, paramDef, async (ps, me) => {
 			.getMany();
 	} else {
 		const nameQuery = Users.createQueryBuilder('user')
-			.where(new Brackets(qb => { 
+			.where(new Brackets(qb => {
 				qb.where('user.name ILIKE :query', { query: '%' + ps.query + '%' });
 
 				// Also search username if it qualifies as username
@@ -75,7 +76,7 @@ export default define(meta, paramDef, async (ps, me) => {
 				.where('user.updatedAt IS NULL')
 				.orWhere('user.updatedAt > :activeThreshold', { activeThreshold });
 			}))
-			.andWhere('user.isSuspended = FALSE');
+			.andWhere('NOT user.isSuspended');
 
 		if (ps.origin === 'local') {
 			nameQuery.andWhere('user.host IS NULL');
@@ -102,11 +103,13 @@ export default define(meta, paramDef, async (ps, me) => {
 
 			const query = Users.createQueryBuilder('user')
 				.where(`user.id IN (${ profQuery.getQuery() })`)
+				// don't show users twice, but also make sure there is at least one value otherwise this is an invalid query
+				.andWhere('user.id NOT IN (:...ids)', { ids: users.length === 0 ? [''] : users.map(user => user.id) })
 				.andWhere(new Brackets(qb => { qb
 					.where('user.updatedAt IS NULL')
 					.orWhere('user.updatedAt > :activeThreshold', { activeThreshold });
 				}))
-				.andWhere('user.isSuspended = FALSE')
+				.andWhere('NOT user.isSuspended')
 				.setParameters(profQuery.getParameters());
 
 			users = users.concat(await query

@@ -1,5 +1,4 @@
 import { URL } from 'node:url';
-import * as mfm from 'mfm-js';
 import config from '@/config/index.js';
 import { ILocalUser } from '@/models/entities/user.js';
 import { toHtml } from '@/mfm/to-html.js';
@@ -31,12 +30,21 @@ export async function renderPerson(user: ILocalUser) {
 
 	if (profile.fields) {
 		for (const field of profile.fields) {
+			let value = field.value;
+			// try to parse it as a url
+			try {
+				if (field.value?.match(/^https?:/)) {
+					const url = new URL(field.value);
+					value = `<a href="${url.href}" rel="me nofollow noopener" target="_blank">${url.href}</a>`;
+				}
+			} catch {
+				// guess it wasn't a url after all...
+			}
+
 			attachment.push({
 				type: 'PropertyValue',
 				name: field.name,
-				value: (field.value != null && field.value.match(/^https?:/))
-					? `<a href="${new URL(field.value).href}" rel="me nofollow noopener" target="_blank">${new URL(field.value).href}</a>`
-					: field.value,
+				value,
 			});
 		}
 	}
@@ -66,7 +74,7 @@ export async function renderPerson(user: ILocalUser) {
 		url: `${config.url}/@${user.username}`,
 		preferredUsername: user.username,
 		name: user.name,
-		summary: profile.description ? toHtml(mfm.parse(profile.description)) : null,
+		summary: profile.description ? await toHtml(profile.description) : null,
 		icon: avatar ? renderImage(avatar) : null,
 		image: banner ? renderImage(banner) : null,
 		tag,
@@ -77,11 +85,11 @@ export async function renderPerson(user: ILocalUser) {
 		attachment: attachment.length ? attachment : undefined,
 	} as any;
 
-	if (profile?.birthday) {
+	if (profile.birthday) {
 		person['vcard:bday'] = profile.birthday;
 	}
 
-	if (profile?.location) {
+	if (profile.location) {
 		person['vcard:Address'] = profile.location;
 	}
 

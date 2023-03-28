@@ -3,12 +3,12 @@
 	<div class="szkkfdyq _popup _shadow" :class="{ asDrawer: type === 'drawer' }" :style="{ maxHeight: maxHeight ? maxHeight + 'px' : '' }">
 		<div class="main">
 			<template v-for="item in items">
-				<button v-if="item.action" v-click-anime class="_button" @click="$event => { item.action($event); close(); }">
+				<button v-if="item.action" class="_button" @click="$event => { item.action($event); close(); }">
 					<i class="icon" :class="item.icon"></i>
 					<div class="text">{{ item.text }}</div>
 					<span v-if="item.indicate" class="indicator"><i class="fas fa-circle"></i></span>
 				</button>
-				<MkA v-else v-click-anime :to="item.to" @click.passive="close()">
+				<MkA v-else :to="item.to" @click.passive="close()">
 					<i class="icon" :class="item.icon"></i>
 					<div class="text">{{ item.text }}</div>
 					<span v-if="item.indicate" class="indicator"><i class="fas fa-circle"></i></span>
@@ -16,15 +16,15 @@
 			</template>
 		</div>
 		<div class="sub">
-			<a v-click-anime href="https://misskey-hub.net/help.html" target="_blank" @click.passive="close()">
+			<button class="_button" @click="help">
 				<i class="fas fa-question-circle icon"></i>
 				<div class="text">{{ i18n.ts.help }}</div>
-			</a>
-			<MkA v-click-anime to="/about" @click.passive="close()">
+			</button>
+			<MkA to="/about" @click.passive="close()">
 				<i class="fas fa-info-circle icon"></i>
-				<div class="text">{{ i18n.t('aboutX', { x: instanceName }) }}</div>
+				<div class="text">{{ i18n.ts.instanceInfo }}</div>
 			</MkA>
-			<MkA v-click-anime to="/about-misskey" @click.passive="close()">
+			<MkA to="/about-foundkey" @click.passive="close()">
 				<img src="/static-assets/favicon.png" class="icon"/>
 				<div class="text">{{ i18n.ts.aboutMisskey }}</div>
 			</MkA>
@@ -34,13 +34,12 @@
 </template>
 
 <script lang="ts" setup>
-import {  } from 'vue';
 import MkModal from '@/components/ui/modal.vue';
 import { menuDef } from '@/menu';
-import { instanceName } from '@/config';
 import { defaultStore } from '@/store';
 import { i18n } from '@/i18n';
 import { deviceKind } from '@/scripts/device-kind';
+import * as os from '@/os';
 
 const props = withDefaults(defineProps<{
 	src?: HTMLElement;
@@ -61,7 +60,7 @@ const modal = $ref<InstanceType<typeof MkModal>>();
 
 const menu = defaultStore.state.menu;
 
-const items = Object.keys(menuDef).filter(k => !menu.includes(k)).map(k => menuDef[k]).filter(def => def.show == null ? true : def.show).map(def => ({
+const items = Object.keys(menuDef).filter(k => !menu.includes(k)).map(k => menuDef[k]).filter(def => def.show ?? true).map(def => ({
 	type: def.to ? 'link' : 'button',
 	text: i18n.ts[def.title],
 	icon: def.icon,
@@ -72,6 +71,28 @@ const items = Object.keys(menuDef).filter(k => !menu.includes(k)).map(k => menuD
 
 function close() {
 	modal.close();
+}
+
+function help(ev: MouseEvent) {
+	os.popupMenu([{
+		type: 'link',
+		to: '/mfm-cheat-sheet',
+		text: i18n.ts._mfm.cheatSheet,
+		icon: 'fas fa-code',
+	}, {
+		type: 'link',
+		to: '/scratchpad',
+		text: i18n.ts.scratchpad,
+		icon: 'fas fa-terminal',
+	}, null, {
+		text: i18n.ts.documentation,
+		icon: 'fas fa-question-circle',
+		action: () => {
+			window.open('https://misskey-hub.net/help.html', '_blank');
+		},
+	}], ev.currentTarget ?? ev.target);
+
+	close();
 }
 </script>
 

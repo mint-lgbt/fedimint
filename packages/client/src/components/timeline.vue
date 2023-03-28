@@ -3,9 +3,8 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, provide, onUnmounted } from 'vue';
+import { computed, provide, onUnmounted } from 'vue';
 import XNotes from './notes.vue';
-import * as os from '@/os';
 import { stream } from '@/stream';
 import * as sound from '@/scripts/sound';
 import { $i } from '@/account';
@@ -59,10 +58,10 @@ let connection2;
 if (props.src === 'antenna') {
 	endpoint = 'antennas/notes';
 	query = {
-		antennaId: props.antenna
+		antennaId: props.antenna,
 	};
 	connection = stream.useChannel('antenna', {
-		antennaId: props.antenna
+		antennaId: props.antenna,
 	});
 	connection.on('note', prepend);
 } else if (props.src === 'home') {
@@ -92,7 +91,7 @@ if (props.src === 'antenna') {
 } else if (props.src === 'directs') {
 	endpoint = 'notes/mentions';
 	query = {
-		visibility: 'specified'
+		visibility: 'specified',
 	};
 	const onNote = note => {
 		if (note.visibility === 'specified') {
@@ -104,10 +103,10 @@ if (props.src === 'antenna') {
 } else if (props.src === 'list') {
 	endpoint = 'notes/user-list-timeline';
 	query = {
-		listId: props.list
+		listId: props.list,
 	};
 	connection = stream.useChannel('userList', {
-		listId: props.list
+		listId: props.list,
 	});
 	connection.on('note', prepend);
 	connection.on('userAdded', onUserAdded);
@@ -115,16 +114,16 @@ if (props.src === 'antenna') {
 } else if (props.src === 'channel') {
 	endpoint = 'channels/timeline';
 	query = {
-		channelId: props.channel
+		channelId: props.channel,
 	};
 	connection = stream.useChannel('channel', {
-		channelId: props.channel
+		channelId: props.channel,
 	});
 	connection.on('note', prepend);
 }
 
 const pagination = {
-	endpoint: endpoint,
+	endpoint,
 	limit: 10,
 	params: query,
 };

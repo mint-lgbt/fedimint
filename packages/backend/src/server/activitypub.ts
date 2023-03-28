@@ -15,7 +15,8 @@ import { ILocalUser, User } from '@/models/entities/user.js';
 import { renderLike } from '@/remote/activitypub/renderer/like.js';
 import { getUserKeypair } from '@/misc/keypair-store.js';
 import renderFollow from '@/remote/activitypub/renderer/follow.js';
-import Outbox, { packActivity } from './activitypub/outbox.js';
+import { renderNoteOrRenoteActivity } from '@/remote/activitypub/renderer/note-or-renote.js';
+import Outbox from './activitypub/outbox.js';
 import Followers from './activitypub/followers.js';
 import Following from './activitypub/following.js';
 import Featured from './activitypub/featured.js';
@@ -23,9 +24,7 @@ import Featured from './activitypub/featured.js';
 // Init router
 const router = new Router();
 
-//#region Routing
-
-function inbox(ctx: Router.RouterContext) {
+function inbox(ctx: Router.RouterContext): void {
 	let signature;
 
 	try {
@@ -43,13 +42,15 @@ function inbox(ctx: Router.RouterContext) {
 const ACTIVITY_JSON = 'application/activity+json; charset=utf-8';
 const LD_JSON = 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"; charset=utf-8';
 
-function isActivityPubReq(ctx: Router.RouterContext) {
+function isActivityPubReq(ctx: Router.RouterContext): boolean {
 	ctx.response.vary('Accept');
+	// if no accept header is supplied, koa returns the 1st, so html is used as a dummy
+	// i.e. activitypub requests must be explicit
 	const accepted = ctx.accepts('html', ACTIVITY_JSON, LD_JSON);
 	return typeof accepted === 'string' && !accepted.match(/html/);
 }
 
-export function setResponseType(ctx: Router.RouterContext) {
+export function setResponseType(ctx: Router.RouterContext): void {
 	const accept = ctx.accepts(ACTIVITY_JSON, LD_JSON);
 	if (accept === LD_JSON) {
 		ctx.response.type = LD_JSON;
@@ -77,7 +78,7 @@ router.get('/notes/:note', async (ctx, next) => {
 		return;
 	}
 
-	// リモートだったらリダイレクト
+	// redirect if remote
 	if (note.userHost != null) {
 		if (note.uri == null || isSelfHost(note.userHost)) {
 			ctx.status = 500;
@@ -94,6 +95,15 @@ router.get('/notes/:note', async (ctx, next) => {
 
 // note activity
 router.get('/notes/:note/activity', async ctx => {
+	if (!isActivityPubReq(ctx)) {
+		/*
+		Redirect to the human readable page. in this case using next is not possible,
+		since there is no human readable page explicitly for the activity.
+		*/
+		ctx.redirect(`/notes/${ctx.params.note}`);
+		return;
+	}
+
 	const note = await Notes.findOneBy({
 		id: ctx.params.note,
 		userHost: IsNull(),
@@ -106,7 +116,7 @@ router.get('/notes/:note/activity', async ctx => {
 		return;
 	}
 
-	ctx.body = renderActivity(await packActivity(note));
+	ctx.body = renderActivity(await renderNoteOrRenoteActivity(note));
 	ctx.set('Cache-Control', 'public, max-age=180');
 	setResponseType(ctx);
 });
@@ -149,7 +159,7 @@ router.get('/users/:user/publickey', async ctx => {
 });
 
 // user
-async function userInfo(ctx: Router.RouterContext, user: User | null) {
+async function userInfo(ctx: Router.RouterContext, user: User | null): Promise<void> {
 	if (user == null) {
 		ctx.status = 404;
 		return;
@@ -185,7 +195,6 @@ router.get('/@:user', async (ctx, next) => {
 
 	await userInfo(ctx, user);
 });
-//#endregion
 
 // emoji
 router.get('/emojis/:emoji', async ctx => {
@@ -213,7 +222,10 @@ router.get('/likes/:like', async ctx => {
 		return;
 	}
 
-	const note = await Notes.findOneBy({ id: reaction.noteId });
+	const note = await Notes.findOneBy({
+		id: reaction.noteId,
+		visibility: In(['public' as const, 'home' as const]),
+	});
 
 	if (note == null) {
 		ctx.status = 404;

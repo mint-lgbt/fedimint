@@ -3,11 +3,10 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 
-const props = withDefaults(defineProps<{
-	user: misskey.entities.User;
+withDefaults(defineProps<{
+	user: foundkey.entities.User;
 	nowrap?: boolean;
 }>(), {
 	nowrap: true,

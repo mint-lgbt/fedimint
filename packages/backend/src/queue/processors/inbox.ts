@@ -1,22 +1,20 @@
 import { URL } from 'node:url';
 import Bull from 'bull';
 import httpSignature from '@peertube/http-signature';
-import perform from '@/remote/activitypub/perform.js';
+import { perform } from '@/remote/activitypub/perform.js';
 import Logger from '@/services/logger.js';
 import { registerOrFetchInstanceDoc } from '@/services/register-or-fetch-instance-doc.js';
 import { Instances } from '@/models/index.js';
 import { apRequestChart, federationChart, instanceChart } from '@/services/chart/index.js';
-import { fetchMeta } from '@/misc/fetch-meta.js';
 import { toPuny, extractDbHost } from '@/misc/convert-host.js';
 import { getApId } from '@/remote/activitypub/type.js';
 import { fetchInstanceMetadata } from '@/services/fetch-instance-metadata.js';
-import DbResolver from '@/remote/activitypub/db-resolver.js';
-import { resolvePerson } from '@/remote/activitypub/models/person.js';
+import { Resolver } from '@/remote/activitypub/resolver.js';
 import { LdSignature } from '@/remote/activitypub/misc/ld-signature.js';
+import { getAuthUser } from '@/remote/activitypub/misc/auth-user.js';
 import { StatusError } from '@/misc/fetch.js';
-import { CacheableRemoteUser } from '@/models/entities/user.js';
-import { UserPublickey } from '@/models/entities/user-publickey.js';
-import { InboxJobData } from '../types.js';
+import { InboxJobData } from '@/queue/types.js';
+import { shouldBlockInstance } from '@/misc/should-block-instance.js';
 
 const logger = new Logger('inbox');
 
@@ -33,9 +31,8 @@ export default async (job: Bull.Job<InboxJobData>): Promise<string> => {
 
 	const host = toPuny(new URL(signature.keyId).hostname);
 
-	// ブロックしてたら中断
-	const meta = await fetchMeta();
-	if (meta.blockedHosts.includes(host)) {
+	// Stop if the host is blocked.
+	if (await shouldBlockInstance(host)) {
 		return `Blocked request: ${host}`;
 	}
 
@@ -44,82 +41,65 @@ export default async (job: Bull.Job<InboxJobData>): Promise<string> => {
 		return `Old keyId is no longer supported. ${keyIdLower}`;
 	}
 
-	const dbResolver = new DbResolver();
+	const resolver = new Resolver();
 
-	// HTTP-Signature keyIdを元にDBから取得
-	let authUser: {
-		user: CacheableRemoteUser;
-		key: UserPublickey | null;
-	} | null = await dbResolver.getAuthUserFromKeyId(signature.keyId);
-
-	// keyIdでわからなければ、activity.actorを元にDBから取得 || activity.actorを元にリモートから取得
-	if (authUser == null) {
-		try {
-			authUser = await dbResolver.getAuthUserFromApId(getApId(activity.actor));
-		} catch (e) {
-			// 対象が4xxならスキップ
-			if (e instanceof StatusError) {
-				if (e.isClientError) {
-					return `skip: Ignored deleted actors on both ends ${activity.actor} - ${e.statusCode}`;
-				}
+	let authUser;
+	try {
+		authUser = await getAuthUser(signature.keyId, getApId(activity.actor), resolver);
+	} catch (e) {
+		if (e instanceof StatusError) {
+			if (e.isClientError) {
+				return `skip: Ignored deleted actors on both ends ${activity.actor} - ${e.statusCode}`;
+			} else {
 				throw new Error(`Error in actor ${activity.actor} - ${e.statusCode || e}`);
 			}
 		}
 	}
 
-	// それでもわからなければ終了
 	if (authUser == null) {
+		// Key not found? Unacceptable!
 		return 'skip: failed to resolve user';
+	} else {
+		// Found key!
 	}
 
-	// publicKey がなくても終了
-	if (authUser.key == null) {
-		return 'skip: failed to resolve user publicKey';
-	}
-
-	// HTTP-Signatureの検証
+	// verify the HTTP Signature
 	const httpSignatureValidated = httpSignature.verifySignature(signature, authUser.key.keyPem);
 
-	// また、signatureのsignerは、activity.actorと一致する必要がある
+	// The signature must be valid.
+	// The signature must also match the actor otherwise anyone could sign any activity.
 	if (!httpSignatureValidated || authUser.user.uri !== activity.actor) {
-		// 一致しなくても、でもLD-Signatureがありそうならそっちも見る
+		// Last resort: LD-Signature
 		if (activity.signature) {
 			if (activity.signature.type !== 'RsaSignature2017') {
 				return `skip: unsupported LD-signature type ${activity.signature.type}`;
 			}
 
-			// activity.signature.creator: https://example.oom/users/user#main-key
-			// みたいになっててUserを引っ張れば公開キーも入ることを期待する
-			if (activity.signature.creator) {
-				const candicate = activity.signature.creator.replace(/#.*/, '');
-				await resolvePerson(candicate).catch(() => null);
-			}
+			// get user based on LD-Signature key id.
+			// lets assume that the creator has this common form:
+			// <https://example.com/users/user#main-key>
+			// Then we can use it as the key id and (without fragment part) user id.
+			authUser = await getAuthUser(activity.signature.creator, activity.signature.creator.replace(/#.*$/, ''), resolver);
 
-			// keyIdからLD-Signatureのユーザーを取得
-			authUser = await dbResolver.getAuthUserFromKeyId(activity.signature.creator);
 			if (authUser == null) {
-				return 'skip: LD-Signatureのユーザーが取得できませんでした';
+				return 'skip: failed to resolve LD-Signature user';
 			}
 
-			if (authUser.key == null) {
-				return 'skip: LD-SignatureのユーザーはpublicKeyを持っていませんでした';
-			}
-
-			// LD-Signature検証
+			// LD-Signature verification
 			const ldSignature = new LdSignature();
 			const verified = await ldSignature.verifyRsaSignature2017(activity, authUser.key.keyPem).catch(() => false);
 			if (!verified) {
 				return 'skip: LD-Signatureの検証に失敗しました';
 			}
 
-			// もう一度actorチェック
+			// Again, the actor must match.
 			if (authUser.user.uri !== activity.actor) {
 				return `skip: LD-Signature user(${authUser.user.uri}) !== activity.actor(${activity.actor})`;
 			}
 
-			// ブロックしてたら中断
+			// Stop if the host is blocked.
 			const ldHost = extractDbHost(authUser.user.uri);
-			if (meta.blockedHosts.includes(ldHost)) {
+			if (await shouldBlockInstance(ldHost)) {
 				return `Blocked request: ${ldHost}`;
 			}
 		} else {
@@ -127,12 +107,17 @@ export default async (job: Bull.Job<InboxJobData>): Promise<string> => {
 		}
 	}
 
-	// activity.idがあればホストが署名者のホストであることを確認する
 	if (typeof activity.id === 'string') {
+		// Verify that activity and actor are from the same host.
 		const signerHost = extractDbHost(authUser.user.uri!);
 		const activityIdHost = extractDbHost(activity.id);
 		if (signerHost !== activityIdHost) {
 			return `skip: signerHost(${signerHost}) !== activity.id host(${activityIdHost}`;
+		}
+
+		// Verify that the id has a sane length
+		if (activity.id.length > 2048) {
+			return `skip: overly long id from ${signerHost}`;
 		}
 	}
 
@@ -152,6 +137,6 @@ export default async (job: Bull.Job<InboxJobData>): Promise<string> => {
 	});
 
 	// アクティビティを処理
-	await perform(authUser.user, activity);
+	await perform(authUser.user, activity, resolver);
 	return 'ok';
 };

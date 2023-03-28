@@ -14,7 +14,6 @@
 
 <script lang="ts" setup>
 import { watch } from 'vue';
-import MkButton from '@/components/ui/button.vue';
 import { defaultStore } from '@/store';
 
 const props = defineProps<{
@@ -28,7 +27,7 @@ const process = () => {
 	// this might be a retry so reset the state
 	state = 'pending';
 
-	props.p?.().then((_result) => {
+	props.p().then((_result) => {
 		result = _result;
 		state = 'resolved';
 	}, () => {
@@ -39,7 +38,7 @@ const process = () => {
 watch(() => props.p, () => {
 	process();
 }, {
-	immediate: true
+	immediate: true,
 });
 </script>
 

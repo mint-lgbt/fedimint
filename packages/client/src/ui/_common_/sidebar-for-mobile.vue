@@ -1,78 +1,64 @@
 <template>
 <div class="kmwsukvl">
 	<div>
-		<button v-click-anime class="item _button account" @click="openAccountMenu">
+		<button class="item _button account" @click="openAccountMenuWrapper">
 			<MkAvatar :user="$i" class="avatar"/><MkAcct class="text" :user="$i"/>
 		</button>
-		<MkA v-click-anime class="item index" active-class="active" to="/" exact>
-			<i class="fas fa-home fa-fw"></i><span class="text">{{ $ts.timeline }}</span>
+		<MkA class="item index" active-class="active" to="/" exact>
+			<i class="fas fa-home fa-fw"></i><span class="text">{{ i18n.ts.timeline }}</span>
 		</MkA>
-		<template v-for="item in menu">
+		<template v-for="item in menu" :key="item">
 			<div v-if="item === '-'" class="divider"></div>
-			<component :is="menuDef[item].to ? 'MkA' : 'button'" v-else-if="menuDef[item] && (menuDef[item].show !== false)" v-click-anime class="item _button" :class="[item, { active: menuDef[item].active }]" active-class="active" :to="menuDef[item].to" v-on="menuDef[item].action ? { click: menuDef[item].action } : {}">
-				<i class="fa-fw" :class="menuDef[item].icon"></i><span class="text">{{ $ts[menuDef[item].title] }}</span>
+			<component :is="menuDef[item].to ? 'MkA' : 'button'" v-else-if="menuDef[item] && (menuDef[item].show !== false)" class="item _button" :class="[item, { active: menuDef[item].active }]" active-class="active" :to="menuDef[item].to" v-on="menuDef[item].action ? { click: menuDef[item].action } : {}">
+				<i class="fa-fw" :class="menuDef[item].icon"></i><span class="text">{{ i18n.ts[menuDef[item].title] }}</span>
 				<span v-if="menuDef[item].indicated" class="indicator"><i class="fas fa-circle"></i></span>
 			</component>
 		</template>
 		<div class="divider"></div>
-		<MkA v-if="$i.isAdmin || $i.isModerator" v-click-anime class="item" active-class="active" to="/admin">
-			<i class="fas fa-door-open fa-fw"></i><span class="text">{{ $ts.controlPanel }}</span>
+		<MkA v-if="iAmModerator" class="item" active-class="active" to="/admin">
+			<i class="fas fa-door-open fa-fw"></i><span class="text">{{ i18n.ts.controlPanel }}</span>
 		</MkA>
-		<button v-click-anime class="item _button" @click="more">
-			<i class="fa fa-ellipsis-h fa-fw"></i><span class="text">{{ $ts.more }}</span>
+		<button class="item _button" @click="more">
+			<i class="fa fa-ellipsis-h fa-fw"></i><span class="text">{{ i18n.ts.more }}</span>
 			<span v-if="otherMenuItemIndicated" class="indicator"><i class="fas fa-circle"></i></span>
 		</button>
-		<MkA v-click-anime class="item" active-class="active" to="/settings">
-			<i class="fas fa-cog fa-fw"></i><span class="text">{{ $ts.settings }}</span>
+		<MkA class="item" active-class="active" to="/settings">
+			<i class="fas fa-cog fa-fw"></i><span class="text">{{ i18n.ts.settings }}</span>
 		</MkA>
 		<button class="item _button post" data-cy-open-post-form @click="post">
-			<i class="fas fa-pencil-alt fa-fw"></i><span class="text">{{ $ts.note }}</span>
+			<i class="fas fa-pencil-alt fa-fw"></i><span class="text">{{ i18n.ts.note }}</span>
 		</button>
 	</div>
 </div>
 </template>
 
-<script lang="ts">
-import { computed, defineAsyncComponent, defineComponent, ref, toRef, watch } from 'vue';
-import { host } from '@/config';
-import { search } from '@/scripts/search';
+<script lang="ts" setup>
+import { defineAsyncComponent, toRef } from 'vue';
 import * as os from '@/os';
 import { menuDef } from '@/menu';
-import { openAccountMenu } from '@/account';
+import { openAccountMenu, $i, iAmModerator } from '@/account';
 import { defaultStore } from '@/store';
+import { i18n } from '@/i18n';
 
-export default defineComponent({
-	setup(props, context) {
-		const menu = toRef(defaultStore.state, 'menu');
-		const otherMenuItemIndicated = computed(() => {
-			for (const def in menuDef) {
-				if (menu.value.includes(def)) continue;
-				if (menuDef[def].indicated) return true;
-			}
-			return false;
-		});
-
-		return {
-			host: host,
-			accounts: [],
-			connection: null,
-			menu,
-			menuDef: menuDef,
-			otherMenuItemIndicated,
-			post: os.post,
-			search,
-			openAccountMenu: (ev) => {
-				openAccountMenu({
-					withExtraOperation: true,
-				}, ev);
-			},
-			more: () => {
-				os.popup(defineAsyncComponent(() => import('@/components/launch-pad.vue')), {}, {
-				}, 'closed');
-			},
-		};
-	},
+const menu = toRef(defaultStore.state, 'menu');
+const otherMenuItemIndicated = $computed(() => {
+	for (const def in menuDef) {
+		if (menu.value.includes(def)) continue;
+		if (menuDef[def].indicated) return true;
+	}
+	return false;
 });
+const post = $ref(os.post);
+
+function openAccountMenuWrapper(ev: MouseEvent): void {
+	openAccountMenu({
+		withExtraOperation: true,
+	}, ev);
+}
+
+function more(): void {
+	os.popup(defineAsyncComponent(() => import('@/components/launch-pad.vue')), {}, {}, 'closed');
+}
 </script>
 
 <style lang="scss" scoped>

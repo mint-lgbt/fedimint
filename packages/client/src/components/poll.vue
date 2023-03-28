@@ -6,12 +6,12 @@
 			<span>
 				<template v-if="choice.isVoted"><i class="fas fa-check"></i></template>
 				<Mfm :text="choice.text" :plain="true" :custom-emojis="note.emojis"/>
-				<span v-if="showResult" class="votes">({{ $t('_poll.votesCount', { n: choice.votes }) }})</span>
+				<span v-if="showResult" class="votes">({{ i18n.t('_poll.votesCount', { n: choice.votes }) }})</span>
 			</span>
 		</li>
 	</ul>
 	<p v-if="!readOnly">
-		<span>{{ $t('_poll.totalVotes', { n: total }) }}</span>
+		<span>{{ i18n.t('_poll.totalVotes', { n: total }) }}</span>
 		<span> · </span>
 		<a v-if="!closed && !isVoted" @click="showResult = !showResult">{{ showResult ? i18n.ts._poll.vote : i18n.ts._poll.showResult }}</a>
 		<span v-if="isVoted">{{ i18n.ts._poll.voted }}</span>
@@ -22,8 +22,8 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onUnmounted, ref, toRef } from 'vue';
-import * as misskey from 'misskey-js';
+import { computed, ref } from 'vue';
+import * as foundkey from 'foundkey-js';
 import { sum } from '@/scripts/array';
 import { pleaseLogin } from '@/scripts/please-login';
 import * as os from '@/os';
@@ -31,7 +31,7 @@ import { i18n } from '@/i18n';
 import { useInterval } from '@/scripts/use-interval';
 
 const props = defineProps<{
-	note: misskey.entities.Note;
+	note: foundkey.entities.Note;
 	readOnly?: boolean;
 }>();
 

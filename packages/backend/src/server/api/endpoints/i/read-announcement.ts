@@ -11,13 +11,7 @@ export const meta = {
 
 	kind: 'write:account',
 
-	errors: {
-		noSuchAnnouncement: {
-			message: 'No such announcement.',
-			code: 'NO_SUCH_ANNOUNCEMENT',
-			id: '184663db-df88-4bc2-8b52-fb85f0681939',
-		},
-	},
+	errors: ['NO_SUCH_ANNOUNCEMENT'],
 } as const;
 
 export const paramDef = {
@@ -31,21 +25,17 @@ export const paramDef = {
 // eslint-disable-next-line import/no-default-export
 export default define(meta, paramDef, async (ps, user) => {
 	// Check if announcement exists
-	const announcement = await Announcements.findOneBy({ id: ps.announcementId });
+	const exists = await Announcements.countBy({ id: ps.announcementId });
 
-	if (announcement == null) {
-		throw new ApiError(meta.errors.noSuchAnnouncement);
-	}
+	if (!exists) throw new ApiError('NO_SUCH_ANNOUNCEMENT');
 
 	// Check if already read
-	const read = await AnnouncementReads.findOneBy({
+	const read = await AnnouncementReads.countBy({
 		announcementId: ps.announcementId,
 		userId: user.id,
 	});
 
-	if (read != null) {
-		return;
-	}
+	if (read) return;
 
 	// Create read
 	await AnnouncementReads.insert({

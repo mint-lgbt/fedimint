@@ -13,10 +13,9 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import MkTooltip from './ui/tooltip.vue';
 
-const props = defineProps<{
+defineProps<{
 	showing: boolean;
 	x: number;
 	y: number;

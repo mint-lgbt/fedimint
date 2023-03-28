@@ -1,4 +1,5 @@
 import { In } from 'typeorm';
+import { noteNotificationTypes } from 'foundkey-js';
 import { db } from '@/db/postgre.js';
 import { aggregateNoteEmojis, prefetchEmojis } from '@/misc/populate-emojis.js';
 import { Packed } from '@/misc/schema.js';
@@ -16,7 +17,7 @@ export const NotificationRepository = db.getRepository(Notification).extend({
 			_hintForEachNotes_?: {
 				myReactions: Map<Note['id'], NoteReaction | null>;
 			};
-		}
+		},
 	): Promise<Packed<'Notification'>> {
 		const notification = typeof src === 'object' ? src : await this.findOneByOrFail({ id: src });
 		const token = notification.appAccessTokenId ? await AccessTokens.findOneByOrFail({ id: notification.appAccessTokenId }) : null;
@@ -28,49 +29,17 @@ export const NotificationRepository = db.getRepository(Notification).extend({
 			isRead: notification.isRead,
 			userId: notification.notifierId,
 			user: notification.notifierId ? Users.pack(notification.notifier || notification.notifierId) : null,
-			...(notification.type === 'mention' ? {
-				note: Notes.pack(notification.note || notification.noteId!, { id: notification.notifieeId }, {
-					detail: true,
-					_hint_: options._hintForEachNotes_,
-				}),
-			} : {}),
-			...(notification.type === 'reply' ? {
-				note: Notes.pack(notification.note || notification.noteId!, { id: notification.notifieeId }, {
-					detail: true,
-					_hint_: options._hintForEachNotes_,
-				}),
-			} : {}),
-			...(notification.type === 'renote' ? {
-				note: Notes.pack(notification.note || notification.noteId!, { id: notification.notifieeId }, {
-					detail: true,
-					_hint_: options._hintForEachNotes_,
-				}),
-			} : {}),
-			...(notification.type === 'quote' ? {
+			...(noteNotificationTypes.includes(notification.type) ? {
 				note: Notes.pack(notification.note || notification.noteId!, { id: notification.notifieeId }, {
 					detail: true,
 					_hint_: options._hintForEachNotes_,
 				}),
 			} : {}),
 			...(notification.type === 'reaction' ? {
-				note: Notes.pack(notification.note || notification.noteId!, { id: notification.notifieeId }, {
-					detail: true,
-					_hint_: options._hintForEachNotes_,
-				}),
 				reaction: notification.reaction,
 			} : {}),
 			...(notification.type === 'pollVote' ? {
-				note: Notes.pack(notification.note || notification.noteId!, { id: notification.notifieeId }, {
-					detail: true,
-					_hint_: options._hintForEachNotes_,
-				}),
 				choice: notification.choice,
-			} : {}),
-			...(notification.type === 'pollEnded' ? {
-				note: Notes.pack(notification.note || notification.noteId!, { id: notification.notifieeId }, {
-					detail: true,
-					_hint_: options._hintForEachNotes_,
-				}),
 			} : {}),
 			...(notification.type === 'groupInvited' ? {
 				invitation: UserGroupInvitations.pack(notification.userGroupInvitationId!),
@@ -85,7 +54,7 @@ export const NotificationRepository = db.getRepository(Notification).extend({
 
 	async packMany(
 		notifications: Notification[],
-		meId: User['id']
+		meId: User['id'],
 	) {
 		if (notifications.length === 0) return [];
 

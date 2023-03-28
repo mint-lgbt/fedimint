@@ -1,4 +1,3 @@
-import { Brackets } from 'typeorm';
 import { Notes } from '@/models/index.js';
 import define from '../../define.js';
 import { makePaginationQuery } from '../../common/make-pagination-query.js';
@@ -21,6 +20,12 @@ export const meta = {
 			optional: false, nullable: false,
 			ref: 'Note',
 		},
+	},
+
+	v2: {
+		method: 'get',
+		alias: 'notes/:noteId/children',
+		pathParameters: ['noteId'],
 	},
 } as const;
 
@@ -52,9 +57,7 @@ export const paramDef = {
 export default define(meta, paramDef, async (ps, user) => {
 	const query = makePaginationQuery(Notes.createQueryBuilder('note'), ps.sinceId, ps.untilId)
 		.andWhere('note.id IN (SELECT id FROM note_replies(:noteId, :depth, :limit))', { noteId: ps.noteId, depth: ps.depth, limit: ps.limit })
-		.innerJoinAndSelect('note.user', 'user')
-		.leftJoinAndSelect('user.avatar', 'avatar')
-		.leftJoinAndSelect('user.banner', 'banner');
+		.innerJoinAndSelect('note.user', 'user');
 
 	generateVisibilityQuery(query, user);
 	if (user) {

@@ -1,14 +1,13 @@
 <template>
-<div v-size="{ max: [310, 500] }" class="gafaadew"
+<div
+	v-size="{ max: [310, 500] }" class="gafaadew"
 	:class="{ modal, _popup: modal }"
 	@dragover.stop="onDragover"
-	@dragenter="onDragenter"
-	@dragleave="onDragleave"
 	@drop.stop="onDrop"
 >
 	<header>
 		<button v-if="!fixed" class="cancel _button" @click="cancel"><i class="fas fa-times"></i></button>
-		<button v-click-anime v-tooltip="i18n.ts.switchAccount" class="account _button" @click="openAccountMenu">
+		<button v-tooltip="i18n.ts.switchAccount" class="account _button" @click="openAccountMenu">
 			<MkAvatar :user="postAccount ?? $i" class="avatar"/>
 		</button>
 		<div>
@@ -16,9 +15,9 @@
 			<span v-if="localOnly" class="local-only"><i class="fas fa-biohazard"></i></span>
 			<button ref="visibilityButton" v-tooltip="i18n.ts.visibility" class="_button visibility" :disabled="channel != null" @click="setVisibility">
 				<span v-if="visibility === 'public'"><i class="fas fa-globe"></i></span>
-				<span v-if="visibility === 'home'"><i class="fas fa-home"></i></span>
-				<span v-if="visibility === 'followers'"><i class="fas fa-unlock"></i></span>
-				<span v-if="visibility === 'specified'"><i class="fas fa-envelope"></i></span>
+				<span v-else-if="visibility === 'home'"><i class="fas fa-home"></i></span>
+				<span v-else-if="visibility === 'followers'"><i class="fas fa-unlock"></i></span>
+				<span v-else-if="visibility === 'specified'"><i class="fas fa-envelope"></i></span>
 			</button>
 			<button v-tooltip="i18n.ts.previewNoteText" class="_button preview" :class="{ active: showPreview }" @click="showPreview = !showPreview"><i class="fas fa-file-code"></i></button>
 			<button class="submit _buttonGradate" :disabled="!canPost" data-cy-open-post-form-submit @click="post">{{ submitText }}<i :class="reply ? 'fas fa-reply' : renote ? 'fas fa-quote-right' : 'fas fa-paper-plane'"></i></button>
@@ -64,10 +63,12 @@
 <script lang="ts" setup>
 import { inject, watch, nextTick, onMounted, defineAsyncComponent } from 'vue';
 import * as mfm from 'mfm-js';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import insertTextAtCursor from 'insert-text-at-cursor';
 import { length } from 'stringz';
 import { toASCII } from 'punycode/';
+import * as Acct from 'foundkey-js/built/acct';
+import { throttle } from 'throttle-debounce';
 import XNoteSimple from './note-simple.vue';
 import XNotePreview from './note-preview.vue';
 import XPostFormAttaches from './post-form-attaches.vue';
@@ -75,14 +76,12 @@ import XPollEditor from './poll-editor.vue';
 import { host, url } from '@/config';
 import { erase, unique } from '@/scripts/array';
 import { extractMentions } from '@/scripts/extract-mentions';
-import * as Acct from 'misskey-js/built/acct';
 import { formatTimeString } from '@/scripts/format-time-string';
 import { Autocomplete } from '@/scripts/autocomplete';
 import * as os from '@/os';
 import { stream } from '@/stream';
 import { selectFiles } from '@/scripts/select-file';
 import { defaultStore, notePostInterruptors, postFormActions } from '@/store';
-import { throttle } from 'throttle-debounce';
 import MkInfo from '@/components/ui/info.vue';
 import { i18n } from '@/i18n';
 import { instance } from '@/instance';
@@ -92,17 +91,17 @@ import { uploadFile } from '@/scripts/upload';
 const modal = inject('modal');
 
 const props = withDefaults(defineProps<{
-	reply?: misskey.entities.Note;
-	renote?: misskey.entities.Note;
+	reply?: foundkey.entities.Note;
+	renote?: foundkey.entities.Note;
 	channel?: any; // TODO
-	mention?: misskey.entities.User;
-	specified?: misskey.entities.User;
+	mention?: foundkey.entities.User;
+	specified?: foundkey.entities.User;
 	initialText?: string;
-	initialVisibility?: typeof misskey.noteVisibilities;
-	initialFiles?: misskey.entities.DriveFile[];
+	initialVisibility?: foundkey.NoteVisibility;
+	initialFiles?: foundkey.entities.DriveFile[];
 	initialLocalOnly?: boolean;
-	initialVisibleUsers?: misskey.entities.User[];
-	initialNote?: misskey.entities.Note;
+	initialVisibleUsers?: foundkey.entities.User[];
+	initialNote?: foundkey.entities.Note;
 	instant?: boolean;
 	fixed?: boolean;
 	autofocus?: boolean;
@@ -122,9 +121,9 @@ const cwInputEl = $ref<HTMLInputElement | null>(null);
 const hashtagsInputEl = $ref<HTMLInputElement | null>(null);
 const visibilityButton = $ref<HTMLElement | null>(null);
 
-let posting = $ref(false);
-let text = $ref(props.initialText ?? '');
-let files = $ref(props.initialFiles ?? []);
+let posting: boolean = $ref(false);
+let text: string = $ref(props.initialText ?? '');
+let files: foundkey.entities.DriveFile[] = $ref(props.initialFiles ?? []);
 let poll = $ref<{
 	choices: string[];
 	multiple: boolean;
@@ -134,14 +133,17 @@ let poll = $ref<{
 let useCw = $ref(false);
 let showPreview = $ref(false);
 let cw = $ref<string | null>(null);
-let localOnly = $ref<boolean>(props.initialLocalOnly ?? defaultStore.state.rememberNoteVisibility ? defaultStore.state.localOnly : defaultStore.state.defaultNoteLocalOnly);
-let visibility = $ref(props.initialVisibility ?? (defaultStore.state.rememberNoteVisibility ? defaultStore.state.visibility : defaultStore.state.defaultNoteVisibility) as typeof misskey.noteVisibilities[number]);
+
+// these define the "maximum" these parameters can be set to and will be tightened further down
+let parentLocalOnly = false;
+let parentVisibility = 'public';
+
+let localOnly = $ref<boolean>(props.initialLocalOnly ?? defaultStore.state.defaultNoteLocalOnly);
+let visibility = $ref(props.initialVisibility ?? defaultStore.state.defaultNoteVisibility as foundkey.NoteVisibility);
 let visibleUsers = $ref([]);
 if (props.initialVisibleUsers) {
 	props.initialVisibleUsers.forEach(pushVisibleUser);
 }
-let autocomplete = $ref(null);
-let draghover = $ref(false);
 let quoteId = $ref(null);
 let hasNotSpecifiedMentions = $ref(false);
 let recentHashtags = $ref(JSON.parse(localStorage.getItem('hashtags') || '[]'));
@@ -181,7 +183,7 @@ const placeholder = $computed((): string => {
 			i18n.ts._postForm._placeholders.c,
 			i18n.ts._postForm._placeholders.d,
 			i18n.ts._postForm._placeholders.e,
-			i18n.ts._postForm._placeholders.f
+			i18n.ts._postForm._placeholders.f,
 		];
 		return xs[Math.floor(Math.random() * xs.length)];
 	}
@@ -205,7 +207,7 @@ const maxTextLength = $computed((): number => {
 
 const canPost = $computed((): boolean => {
 	return !posting &&
-		(1 <= textLength || 1 <= files.length || !!poll || !!props.renote) &&
+		(1 <= textLength || 1 <= files.length || !!poll || !!props.renote || !!quoteId) &&
 		(textLength <= maxTextLength) &&
 		(!poll || poll.choices.length >= 2);
 });
@@ -238,10 +240,10 @@ if (props.reply && props.reply.text != null) {
 
 	for (const x of extractMentions(ast)) {
 		const mention = x.host ?
-											`@${x.username}@${toASCII(x.host)}` :
-											(otherHost == null || otherHost === host) ?
-												`@${x.username}` :
-												`@${x.username}@${toASCII(otherHost)}`;
+			`@${x.username}@${toASCII(x.host)}` :
+			(otherHost == null || otherHost === host) ?
+				`@${x.username}` :
+				`@${x.username}@${toASCII(otherHost)}`;
 
 		// 自分は除外
 		if ($i.username === x.username && (x.host == null || x.host === host)) continue;
@@ -254,16 +256,14 @@ if (props.reply && props.reply.text != null) {
 }
 
 if (props.channel) {
-	visibility = 'public';
-	localOnly = true; // TODO: チャンネルが連合するようになった折には消す
+	parentLocalOnly = true; // TODO: remove when channels are federated
 }
 
-// 公開以外へのリプライ時は元の公開範囲を引き継ぐ
-if (props.reply && ['home', 'followers', 'specified'].includes(props.reply.visibility)) {
-	visibility = props.reply.visibility;
+if (props.reply) {
+	parentVisibility = foundkey.minVisibility(props.reply.visibility, parentVisibility);
 	if (props.reply.visibility === 'specified') {
 		os.api('users/show', {
-			userIds: props.reply.visibleUserIds.filter(uid => uid !== $i.id && uid !== props.reply.userId)
+			userIds: props.reply.visibleUserIds.filter(uid => uid !== $i.id && uid !== props.reply.userId),
 		}).then(users => {
 			users.forEach(pushVisibleUser);
 		});
@@ -274,12 +274,35 @@ if (props.reply && ['home', 'followers', 'specified'].includes(props.reply.visib
 			});
 		}
 	}
+	parentLocalOnly ||= props.reply.localOnly;
+}
+
+if (props.renote) {
+	parentVisibility = foundkey.minVisibility(props.renote.visibility, parentVisibility);
+	if (props.renote.visibility === 'specified') {
+		os.api('users/show', {
+			userIds: props.renote.visibleUserIds.filter(uid => uid !== $i.id && uid !== props.renote.userId),
+		}).then(users => {
+			users.forEach(pushVisibleUser);
+		});
+
+		if (props.renote.userId !== $i.id) {
+			os.api('users/show', { userId: props.renote.userId }).then(user => {
+				pushVisibleUser(user);
+			});
+		}
+	}
+	parentLocalOnly ||= props.renote.localOnly;
 }
 
 if (props.specified) {
-	visibility = 'specified';
+	parentVisibility = 'specified';
 	pushVisibleUser(props.specified);
 }
+
+// set visibility and local only defaults to minimum of preselected or allowed.
+visibility = foundkey.minVisibility(visibility, parentVisibility);
+localOnly ||= parentLocalOnly;
 
 // keep cw when reply
 if (defaultStore.state.keepCw && props.reply && props.reply.cw) {
@@ -336,10 +359,6 @@ function togglePoll() {
 	}
 }
 
-function addTag(tag: string) {
-	insertTextAtCursor(textareaEl, ` #${tag} `);
-}
-
 function focus() {
 	if (textareaEl) {
 		textareaEl.focus();
@@ -384,22 +403,18 @@ function setVisibility() {
 	}
 
 	os.popup(defineAsyncComponent(() => import('./visibility-picker.vue')), {
+		parentVisibility,
+		parentLocalOnly,
 		currentVisibility: visibility,
 		currentLocalOnly: localOnly,
 		src: visibilityButton,
 	}, {
 		changeVisibility: v => {
 			visibility = v;
-			if (defaultStore.state.rememberNoteVisibility) {
-				defaultStore.set('visibility', visibility);
-			}
 		},
 		changeLocalOnly: v => {
 			localOnly = v;
-			if (defaultStore.state.rememberNoteVisibility) {
-				defaultStore.set('localOnly', localOnly);
-			}
-		}
+		},
 	}, 'closed');
 }
 
@@ -437,7 +452,7 @@ function onCompositionUpdate(ev: CompositionEvent) {
 	typing();
 }
 
-function onCompositionEnd(ev: CompositionEvent) {
+function onCompositionEnd() {
 	imeText = '';
 }
 
@@ -477,22 +492,11 @@ function onDragover(ev) {
 	const isDriveFile = ev.dataTransfer.types[0] === _DATA_TRANSFER_DRIVE_FILE_;
 	if (isFile || isDriveFile) {
 		ev.preventDefault();
-		draghover = true;
 		ev.dataTransfer.dropEffect = ev.dataTransfer.effectAllowed === 'all' ? 'copy' : 'move';
 	}
 }
 
-function onDragenter(ev) {
-	draghover = true;
-}
-
-function onDragleave(ev) {
-	draghover = false;
-}
-
 function onDrop(ev): void {
-	draghover = false;
-
 	// ファイルだったら
 	if (ev.dataTransfer.files.length > 0) {
 		ev.preventDefault();
@@ -510,21 +514,48 @@ function onDrop(ev): void {
 	//#endregion
 }
 
+// Save a copy of the initial data to detect whether it has been changed.
+// Cloning the data to make sure there are no remaining references.
+const initialDraftData = JSON.parse(JSON.stringify({
+	text,
+	useCw,
+	cw,
+	visibility,
+	localOnly,
+	files,
+}));
+
 function saveDraft() {
 	const draftData = JSON.parse(localStorage.getItem('drafts') || '{}');
 
-	draftData[draftKey] = {
-		updatedAt: new Date(),
-		data: {
-			text: text,
-			useCw: useCw,
-			cw: cw,
-			visibility: visibility,
-			localOnly: localOnly,
-			files: files,
-			poll: poll
-		}
-	};
+	if (
+		initialDraftData.text === text
+		&& initialDraftData.useCw === useCw
+		// don't compare cw for equality if it is disabled, since it won't be sent
+		&& (!useCw || initialDraftData.cw === cw)
+		&& initialDraftData.visibility === visibility
+		&& initialDraftData.localOnly === localOnly
+		&& initialDraftData.files.every((file, i) => file.id === files[i].id)
+		// initial state is always poll == null
+		&& poll == null
+	) {
+		// This is the same as the initial draft data, no need to save it.
+		// If it was saved before, delete it.
+		delete draftData[draftKey];
+	} else {
+		draftData[draftKey] = {
+			updatedAt: new Date(),
+			data: {
+				text,
+				useCw,
+				cw,
+				visibility,
+				localOnly,
+				files,
+				poll,
+			},
+		};
+	}
 
 	localStorage.setItem('drafts', JSON.stringify(draftData));
 }
@@ -542,12 +573,12 @@ async function post() {
 		text: text === '' ? undefined : text,
 		fileIds: files.length > 0 ? files.map(f => f.id) : undefined,
 		replyId: props.reply ? props.reply.id : undefined,
-		renoteId: props.renote ? props.renote.id : quoteId ? quoteId : undefined,
+		renoteId: props.renote?.id ?? quoteId ?? undefined,
 		channelId: props.channel ? props.channel.id : undefined,
-		poll: poll,
+		poll,
 		cw: useCw ? cw || '' : undefined,
-		localOnly: localOnly,
-		visibility: visibility,
+		localOnly,
+		visibility,
 		visibleUserIds: visibility === 'specified' ? visibleUsers.map(u => u.id) : undefined,
 	};
 
@@ -612,15 +643,15 @@ function showActions(ev) {
 		text: action.title,
 		action: () => {
 			action.handler({
-				text: text
+				text,
 			}, (key, value) => {
 				if (key === 'text') { text = value; }
 			});
-		}
+		},
 	})), ev.currentTarget ?? ev.target);
 }
 
-let postAccount = $ref<misskey.entities.UserDetailed | null>(null);
+let postAccount = $ref<foundkey.entities.UserDetailed | null>(null);
 
 function openAccountMenu(ev: MouseEvent) {
 	openAccountMenu_({

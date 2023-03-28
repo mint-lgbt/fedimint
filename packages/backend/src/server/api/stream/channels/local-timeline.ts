@@ -2,19 +2,21 @@ import { fetchMeta } from '@/misc/fetch-meta.js';
 import { checkWordMute } from '@/misc/check-word-mute.js';
 import { isUserRelated } from '@/misc/is-user-related.js';
 import { Packed } from '@/misc/schema.js';
+import { Note } from '@/models/entities/note.js';
 import Channel from '../channel.js';
 
 export default class extends Channel {
 	public readonly chName = 'localTimeline';
 	public static shouldShare = true;
 	public static requireCredential = false;
+	onNote: (note: Note) => Promise<void>;
 
 	constructor(id: string, connection: Channel['connection']) {
 		super(id, connection);
-		this.onNote = this.withPackedNote(this.onNote.bind(this));
+		this.onNote = this.withPackedNote(this.onPackedNote.bind(this));
 	}
 
-	public async init(params: any) {
+	public async init() {
 		const meta = await fetchMeta();
 		if (meta.disableLocalTimeline) {
 			if (this.user == null || (!this.user.isAdmin && !this.user.isModerator)) return;
@@ -24,7 +26,7 @@ export default class extends Channel {
 		this.subscriber.on('notesStream', this.onNote);
 	}
 
-	private async onNote(note: Packed<'Note'>) {
+	private async onPackedNote(note: Packed<'Note'>): Promise<void> {
 		if (note.user.host !== null) return;
 		if (note.visibility !== 'public') return;
 		if (note.channelId != null && !this.followingChannels.has(note.channelId)) return;
@@ -40,6 +42,7 @@ export default class extends Channel {
 		if (isUserRelated(note, this.muting)) return;
 		// 流れてきたNoteがブロックされているユーザーが関わるものだったら無視する
 		if (isUserRelated(note, this.blocking)) return;
+		if (note.renote && this.renoteMuting.has(note.userId)) return;
 
 		// 流れてきたNoteがミュートすべきNoteだったら無視する
 		// TODO: 将来的には、単にMutedNoteテーブルにレコードがあるかどうかで判定したい(以下の理由により難しそうではある)

@@ -23,20 +23,24 @@ export const meta = {
 		},
 	},
 
-	errors: {
-		noSuchNote: {
-			message: 'No such note.',
-			code: 'NO_SUCH_NOTE',
-			id: '263fff3d-d0e1-4af4-bea7-8408059b451a',
-		},
+	v2: {
+		method: 'get',
+		alias: 'notes/:noteId/reactions',
+		pathParameters: ['noteId'],
 	},
+
+	errors: ['NO_SUCH_NOTE'],
 } as const;
 
 export const paramDef = {
 	type: 'object',
 	properties: {
 		noteId: { type: 'string', format: 'misskey:id' },
-		type: { type: 'string', nullable: true },
+		type: {
+			description: 'A Unicode emoji or custom emoji code. A custom emoji should look like `:name:` or `:name@example.com:`.',
+			type: 'string',
+			nullable: true,
+		},
 		limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
 		offset: { type: 'integer', default: 0 },
 		sinceId: { type: 'string', format: 'misskey:id' },
@@ -48,8 +52,8 @@ export const paramDef = {
 // eslint-disable-next-line import/no-default-export
 export default define(meta, paramDef, async (ps, user) => {
 	// check note visibility
-	const note = await getNote(ps.noteId, user).catch(err => {
-		if (err.id === '9725d0ce-ba28-4dde-95a7-2cbb2c15de24') throw new ApiError(meta.errors.noSuchNote);
+	await getNote(ps.noteId, user).catch(err => {
+		if (err.id === '9725d0ce-ba28-4dde-95a7-2cbb2c15de24') throw new ApiError('NO_SUCH_NOTE');
 		throw err;
 	});
 

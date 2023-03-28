@@ -7,35 +7,36 @@ doctype html
 
 //
 	-
-	  _____ _         _           
-	 |     |_|___ ___| |_ ___ _ _ 
-	 | | | | |_ -|_ -| '_| -_| | |
-	 |_|_|_|_|___|___|_,_|___|_  |
-	                         |___|
-	 Thank you for using Misskey!
+	 ___                 _ _  __         
+	| __|__ _  _ _ _  __| | |/ /___ _  _ 
+	| _/ _ \ || | ' \/ _` | ' </ -_) || |
+	|_|\___/\_,_|_||_\__,_|_|\_\___|\_, |
+	                                |__/ 
+	 Thank you for using FoundKey!
 	 If you are reading this message... how about joining the development?
-	 https://github.com/misskey-dev/misskey
+	 https://akkoma.dev/FoundKeyGang/FoundKey
 	 
 
 html
 
 	head
 		meta(charset='utf-8')
-		meta(name='application-name' content='Misskey')
+		meta(name='application-name' content='FoundKey')
 		meta(name='referrer' content='origin')
 		meta(name='theme-color' content= themeColor || '#86b300')
 		meta(name='theme-color-orig' content= themeColor || '#86b300')
 		meta(property='twitter:card' content='summary')
-		meta(property='og:site_name' content= instanceName || 'Misskey')
+		meta(property='og:site_name' content= instanceName || 'FoundKey')
 		meta(name='viewport' content='width=device-width, initial-scale=1')
 		link(rel='icon' href= icon || '/favicon.ico')
 		link(rel='apple-touch-icon' href= icon || '/apple-touch-icon.png')
 		link(rel='manifest' href='/manifest.json')
-		link(rel='prefetch' href='https://xn--931a.moe/assets/info.jpg')
-		link(rel='prefetch' href='https://xn--931a.moe/assets/not-found.jpg')
-		link(rel='prefetch' href='https://xn--931a.moe/assets/error.jpg')
+		link(rel='prefetch' href=config.images.info)
+		link(rel='prefetch' href=config.images.notFound)
+		link(rel='prefetch' href=config.images.error)
 		link(rel='stylesheet' href='/assets/fontawesome/css/all.css')
 		link(rel='modulepreload' href=`/assets/${clientEntry.file}`)
+		script(src='/client-assets/libopenmpt.js')
 
 		each href in clientEntry.css
 			link(rel='preload' href=`/assets/${href}` as='style')
@@ -45,7 +46,7 @@ html
 
 		title
 			block title
-				= title || 'Misskey'
+				= title || 'FoundKey'
 
 		block desc
 			meta(name='description' content= desc || '✨🌎✨ A interplanetary communication platform ✨🚀✨')
@@ -53,7 +54,7 @@ html
 		block meta
 
 		block og
-			meta(property='og:title'       content= title || 'Misskey')
+			meta(property='og:title'       content= title || 'FoundKey')
 			meta(property='og:description' content= desc || '✨🌎✨ A interplanetary communication platform ✨🚀✨') 
 			meta(property='og:image'       content= img)
 
@@ -63,9 +64,7 @@ html
 		script.
 			var VERSION = "#{version}";
 			var CLIENT_ENTRY = "#{clientEntry.file}";
-
-		script
-			include ../boot.js
+			window.libopenmpt = window.Module;
 
 	body
 		noscript: p
@@ -86,3 +85,6 @@ html
 					</g>
 				</svg>
 		block content
+
+		script
+			include ../boot.js

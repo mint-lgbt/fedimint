@@ -1,5 +1,6 @@
 <template>
-<MkWindow ref="window"
+<MkWindow
+	ref="window"
 	:initial-width="null"
 	:initial-height="null"
 	:can-resize="false"
@@ -12,7 +13,6 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import MkWindow from '@/components/ui/window.vue';
 import MkEmojiPicker from '@/components/emoji-picker.vue';
 

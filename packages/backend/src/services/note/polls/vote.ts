@@ -1,12 +1,12 @@
-import { Not } from 'typeorm';
+import { ArrayOverlap, Not } from 'typeorm';
 import { publishNoteStream } from '@/services/stream.js';
 import { CacheableUser } from '@/models/entities/user.js';
 import { Note } from '@/models/entities/note.js';
-import { PollVotes, NoteWatchings, Polls, Blockings } from '@/models/index.js';
+import { PollVotes, NoteWatchings, Polls, Blockings, NoteThreadMutings } from '@/models/index.js';
 import { genId } from '@/misc/gen-id.js';
-import { createNotification } from '../../create-notification.js';
+import { createNotification } from '@/services/create-notification.js';
 
-export default async function(user: CacheableUser, note: Note, choice: number) {
+export async function vote(user: CacheableUser, note: Note, choice: number): Promise<void> {
 	const poll = await Polls.findOneBy({ noteId: note.id });
 
 	if (poll == null) throw new Error('poll not found');
@@ -16,7 +16,7 @@ export default async function(user: CacheableUser, note: Note, choice: number) {
 
 	// Check blocking
 	if (note.userId !== user.id) {
-		const block = await Blockings.findOneBy({
+		const block = await Blockings.countBy({
 			blockerId: note.userId,
 			blockeeId: user.id,
 		});
@@ -57,12 +57,20 @@ export default async function(user: CacheableUser, note: Note, choice: number) {
 		userId: user.id,
 	});
 
-	// Notify
-	createNotification(note.userId, 'pollVote', {
-		notifierId: user.id,
-		noteId: note.id,
-		choice,
+	// check if this thread and notification type is muted
+	const muted = await NoteThreadMutings.countBy({
+		userId: note.userId,
+		threadId: note.threadId || note.id,
+		mutingNotificationTypes: ArrayOverlap(['pollVote']),
 	});
+	// Notify
+	if (!muted) {
+		createNotification(note.userId, 'pollVote', {
+			notifierId: user.id,
+			noteId: note.id,
+			choice,
+		});
+	}
 
 	// Fetch watchers
 	NoteWatchings.findBy({

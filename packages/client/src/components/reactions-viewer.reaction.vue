@@ -7,16 +7,15 @@
 	:class="{ reacted: note.myReaction == reaction, canToggle }"
 	@click="toggleReaction()"
 >
-	<XReactionIcon class="icon" :reaction="reaction" :custom-emojis="note.emojis"/>
+	<MkEmoji class="icon" :emoji="reaction" :custom-emojis="note.emojis" :is-reaction="true" :normal="true"/>
 	<span class="count">{{ count }}</span>
 </button>
 </template>
 
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import XDetails from '@/components/reactions-viewer.details.vue';
-import XReactionIcon from '@/components/reaction-icon.vue';
 import * as os from '@/os';
 import { useTooltip } from '@/scripts/use-tooltip';
 import { $i } from '@/account';
@@ -25,14 +24,14 @@ const props = defineProps<{
 	reaction: string;
 	count: number;
 	isInitial: boolean;
-	note: misskey.entities.Note;
+	note: foundkey.entities.Note;
 }>();
 
 const buttonRef = ref<HTMLElement>();
 
 const canToggle = computed(() => !props.reaction.match(/@\w/) && $i);
 
-const toggleReaction = () => {
+const toggleReaction = (): void => {
 	if (!canToggle.value) return;
 
 	const oldReaction = props.note.myReaction;

@@ -1,10 +1,10 @@
 Unless otherwise stated this repository is
-Copyright © 2014-2020 syuilo and contributers
-
+Copyright © 2014-2022 syuilo and contributors
+Copyright © 2022-2023 FoundKey contributors
 And is distributed under The GNU Affero General Public License Version 3, you should have received a copy of the license file as LICENSE.
+(You may be able to run `git shortlog -se` to see a full list of authors.)
 
-
-Misskey includes several third-party Open-Source softwares.
+FoundKey includes several third-party Open-Source softwares.
 
 Emoji keywords for Unicode 11 and below by Mu-An Chiou
 License: MIT
@@ -13,3 +13,15 @@ https://github.com/muan/emojilib/blob/master/LICENSE
 RsaSignature2017 implementation by Transmute Industries Inc
 License: MIT
 https://github.com/transmute-industries/RsaSignature2017/blob/master/LICENSE
+
+Chiptune2.js by Simon Gündling
+License: MIT
+https://github.com/deskjet/chiptune2.js#license
+
+libopenmpt (as part of openmpt) by OpenMPT
+License: BSD 3-Clause
+https://github.com/OpenMPT/openmpt/blob/master/LICENSE
+
+The logo file (logo.svg) was created by Blinry
+License: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
+https://blinry.org/

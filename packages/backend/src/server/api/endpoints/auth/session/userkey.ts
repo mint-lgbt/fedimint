@@ -1,4 +1,4 @@
-import { Apps, AuthSessions, AccessTokens, Users } from '@/models/index.js';
+import { Apps, AuthSessions, Users } from '@/models/index.js';
 import define from '../../../define.js';
 import { ApiError } from '../../../error.js';
 
@@ -24,25 +24,7 @@ export const meta = {
 		},
 	},
 
-	errors: {
-		noSuchApp: {
-			message: 'No such app.',
-			code: 'NO_SUCH_APP',
-			id: 'fcab192a-2c5a-43b7-8ad8-9b7054d8d40d',
-		},
-
-		noSuchSession: {
-			message: 'No such session.',
-			code: 'NO_SUCH_SESSION',
-			id: '5b5a1503-8bc8-4bd0-8054-dc189e8cdcb3',
-		},
-
-		pendingSession: {
-			message: 'This session is not completed yet.',
-			code: 'PENDING_SESSION',
-			id: '8c8a4145-02cc-4cca-8e66-29ba60445a8e',
-		},
-	},
+	errors: ['NO_SUCH_APP', 'NO_SUCH_SESSION', 'PENDING_SESSION'],
 } as const;
 
 export const paramDef = {
@@ -61,36 +43,29 @@ export default define(meta, paramDef, async (ps) => {
 		secret: ps.appSecret,
 	});
 
-	if (app == null) {
-		throw new ApiError(meta.errors.noSuchApp);
-	}
+	if (app == null) throw new ApiError('NO_SUCH_APP');
 
 	// Fetch token
-	const session = await AuthSessions.findOneBy({
-		token: ps.token,
-		appId: app.id,
+	const session = await AuthSessions.findOne({
+		where: {
+			token: ps.token,
+			appId: app.id,
+		},
+		relations: {
+			accessToken: true,
+		},
 	});
 
-	if (session == null) {
-		throw new ApiError(meta.errors.noSuchSession);
-	}
+	if (session == null) throw new ApiError('NO_SUCH_SESSION');
 
-	if (session.userId == null) {
-		throw new ApiError(meta.errors.pendingSession);
-	}
-
-	// Lookup access token
-	const accessToken = await AccessTokens.findOneByOrFail({
-		appId: app.id,
-		userId: session.userId,
-	});
+	if (session.accessTokenId == null) throw new ApiError('PENDING_SESSION');
 
 	// Delete session
 	AuthSessions.delete(session.id);
 
 	return {
-		accessToken: accessToken.token,
-		user: await Users.pack(session.userId, null, {
+		accessToken: session.accessToken.token,
+		user: await Users.pack(session.accessToken.userId, null, {
 			detail: true,
 		}),
 	};

@@ -5,7 +5,7 @@ import define from '../../define.js';
 export const meta = {
 	tags: ['federation'],
 
-	requireCredential: false,
+	requireCredential: true,
 
 	res: {
 		oneOf: [{
@@ -26,7 +26,7 @@ export const paramDef = {
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, paramDef, async (ps, me) => {
+export default define(meta, paramDef, async (ps) => {
 	const instance = await Instances
 		.findOneBy({ host: toPuny(ps.host) });
 

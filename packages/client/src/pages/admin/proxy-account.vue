@@ -1,22 +1,23 @@
-<template><MkStickyContainer>
-	<template #header><MkPageHeader :actions="headerActions" :tabs="headerTabs"/></template>
-		<MkSpacer :content-max="700" :margin-min="16" :margin-max="32">
-	<FormSuspense :p="init">
-		<MkInfo class="_formBlock">{{ i18n.ts.proxyAccountDescription }}</MkInfo>
-		<MkKeyValue class="_formBlock">
-			<template #key>{{ i18n.ts.proxyAccount }}</template>
-			<template #value>{{ proxyAccount ? `@${proxyAccount.username}` : i18n.ts.none }}</template>
-		</MkKeyValue>
+<template>
+<MkStickyContainer>
+	<template #header><MkPageHeader/></template>
+	<MkSpacer :content-max="700" :margin-min="16" :margin-max="32">
+		<FormSuspense :p="init">
+			<MkInfo class="_formBlock">{{ i18n.ts.proxyAccountDescription }}</MkInfo>
+			<MkKeyValue class="_formBlock">
+				<template #key>{{ i18n.ts.proxyAccount }}</template>
+				<template #value>{{ proxyAccount ? `@${proxyAccount.username}` : i18n.ts.none }}</template>
+			</MkKeyValue>
 
-		<FormButton primary class="_formBlock" @click="chooseProxyAccount">{{ i18n.ts.selectAccount }}</FormButton>
-	</FormSuspense>
-</MkSpacer></MkStickyContainer>
+			<MkButton primary class="_formBlock" @click="chooseProxyAccount">{{ i18n.ts.selectAccount }}</MkButton>
+		</FormSuspense>
+	</MkSpacer>
+</MkStickyContainer>
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import MkKeyValue from '@/components/key-value.vue';
-import FormButton from '@/components/ui/button.vue';
+import MkButton from '@/components/ui/button.vue';
 import MkInfo from '@/components/ui/info.vue';
 import FormSuspense from '@/components/form/suspense.vue';
 import * as os from '@/os';
@@ -45,15 +46,11 @@ function chooseProxyAccount() {
 
 function save() {
 	os.apiWithDialog('admin/update-meta', {
-		proxyAccountId: proxyAccountId,
+		proxyAccountId,
 	}).then(() => {
 		fetchInstance();
 	});
 }
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.proxyAccount,

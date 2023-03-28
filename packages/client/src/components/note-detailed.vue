@@ -43,7 +43,7 @@
 					</div>
 				</div>
 				<div class="username"><MkAcct :user="appearNote.user"/></div>
-				<MkInstanceTicker v-if="showTicker" class="ticker" :instance="appearNote.user.instance"/>
+				<MkInstanceTicker v-if="showTicker" class="ticker" :host="appearNote.user.host" :instance="appearNote.user.instance"/>
 			</div>
 		</header>
 		<div class="main">
@@ -60,7 +60,7 @@
 						<div v-if="translating || translation" class="translation">
 							<MkLoading v-if="translating" mini/>
 							<div v-else class="translated">
-								<b>{{ $t('translatedFrom', { x: translation.sourceLang }) }}: </b>
+								<b>{{ i18n.t('translatedFrom', { x: translation.sourceLang }) }}: </b>
 								<Mfm :text="translation.text" :author="appearNote.user" :i="$i" :custom-emojis="appearNote.emojis"/>
 							</div>
 						</div>
@@ -113,9 +113,9 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, inject, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { inject, onMounted, ref } from 'vue';
 import * as mfm from 'mfm-js';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import MkNoteSub from './MkNoteSub.vue';
 import XNoteSimple from './note-simple.vue';
 import XReactionsViewer from './reactions-viewer.vue';
@@ -140,7 +140,7 @@ import { getNoteMenu } from '@/scripts/get-note-menu';
 import { useNoteCapture } from '@/scripts/use-note-capture';
 
 const props = defineProps<{
-	note: misskey.entities.Note;
+	note: foundkey.entities.Note;
 	pinned?: boolean;
 }>();
 
@@ -159,19 +159,14 @@ if (noteViewInterruptors.length > 0) {
 	});
 }
 
-const isRenote = (
-	note.renote != null &&
-	note.text == null &&
-	note.fileIds.length === 0 &&
-	note.poll == null
-);
+const isRenote = foundkey.entities.isPureRenote(note);
 
 const el = ref<HTMLElement>();
 const menuButton = ref<HTMLElement>();
 const renoteButton = ref<InstanceType<typeof XRenoteButton>>();
 const renoteTime = ref<HTMLElement>();
 const reactButton = ref<HTMLElement>();
-let appearNote = $computed(() => isRenote ? note.renote as misskey.entities.Note : note);
+let appearNote = $computed(() => isRenote ? note.renote as foundkey.entities.Note : note);
 const isMyRenote = $i && ($i.id === note.userId);
 const showContent = ref(false);
 const isDeleted = ref(false);
@@ -180,13 +175,13 @@ const translation = ref(null);
 const translating = ref(false);
 const urls = appearNote.text ? extractUrlFromMfm(mfm.parse(appearNote.text)) : null;
 const showTicker = (defaultStore.state.instanceTicker === 'always') || (defaultStore.state.instanceTicker === 'remote' && appearNote.user.instance);
-const conversation = ref<misskey.entities.Note[]>([]);
-const replies = ref<misskey.entities.Note[]>([]);
-const directReplies = ref<misskey.entities.Note[]>([]);
+const conversation = ref<foundkey.entities.Note[]>([]);
+const replies = ref<foundkey.entities.Note[]>([]);
+const directReplies = ref<foundkey.entities.Note[]>([]);
 
 const keymap = {
 	'r': () => reply(true),
-	'e|a|plus': () => react(true),
+	'e|a|plus': () => react(),
 	'q': () => renoteButton.value.renote(true),
 	'esc': blur,
 	'm|o': () => menu(true),
@@ -209,13 +204,13 @@ function reply(viaKeyboard = false): void {
 	});
 }
 
-function react(viaKeyboard = false): void {
+function react(): void {
 	pleaseLogin();
 	blur();
 	reactionPicker.show(reactButton.value, reaction => {
 		os.api('notes/reactions/create', {
 			noteId: appearNote.id,
-			reaction: reaction,
+			reaction,
 		});
 	}, () => {
 		focus();
@@ -244,12 +239,12 @@ function onContextmenu(ev: MouseEvent): void {
 		ev.preventDefault();
 		react();
 	} else {
-		os.contextMenu(getNoteMenu({ note: note, translating, translation, menuButton, isDeleted }), ev).then(focus);
+		os.contextMenu(getNoteMenu({ note, translating, translation, menuButton, isDeleted }), ev).then(focus);
 	}
 }
 
 function menu(viaKeyboard = false): void {
-	os.popupMenu(getNoteMenu({ note: note, translating, translation, menuButton, isDeleted }), menuButton.value, {
+	os.popupMenu(getNoteMenu({ note, translating, translation, menuButton, isDeleted }), menuButton.value, {
 		viaKeyboard,
 	}).then(focus);
 }
@@ -267,7 +262,7 @@ function showRenoteMenu(viaKeyboard = false): void {
 			isDeleted.value = true;
 		},
 	}], renoteTime.value, {
-		viaKeyboard: viaKeyboard,
+		viaKeyboard,
 	});
 }
 

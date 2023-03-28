@@ -7,21 +7,26 @@ import { IdentifiableError } from '@/misc/identifiable-error.js';
 import { User } from '@/models/entities/user.js';
 import { Users, FollowRequests } from '@/models/index.js';
 
-export default async function(followee: { id: User['id']; host: User['host']; uri: User['host']; inbox: User['inbox'] }, follower: { id: User['id']; host: User['host']; uri: User['host'] }) {
+/**
+ * Cancel a follow request from `follower` to `followee`.
+ * @param followee User that was going to be followed
+ * @param follower User who is making the follow request
+ */
+export async function cancelFollowRequest(followee: User, follower: User): Promise<void> {
 	if (Users.isRemoteUser(followee)) {
 		const content = renderActivity(renderUndo(renderFollow(follower, followee), follower));
 
-		if (Users.isLocalUser(follower)) { // 本来このチェックは不要だけどTSに怒られるので
+		if (Users.isLocalUser(follower)) {
 			deliver(follower, content, followee.inbox);
 		}
 	}
 
-	const request = await FollowRequests.findOneBy({
+	const requested = await FollowRequests.countBy({
 		followeeId: followee.id,
 		followerId: follower.id,
 	});
 
-	if (request == null) {
+	if (!requested) {
 		throw new IdentifiableError('17447091-ce07-46dd-b331-c1fd4f15b1e7', 'request not found');
 	}
 

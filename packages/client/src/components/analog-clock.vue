@@ -1,11 +1,12 @@
 <template>
 <svg class="mbcofsoe" viewBox="0 0 10 10" preserveAspectRatio="none">
-	<circle v-for="(angle, i) in graduations"
-					:key="i"
-					:cx="5 + (Math.sin(angle) * (5 - graduationsPadding))"
-					:cy="5 - (Math.cos(angle) * (5 - graduationsPadding))"
-					:r="i % 5 == 0 ? 0.125 : 0.05"
-					:fill="i % 5 == 0 ? majorGraduationColor : minorGraduationColor"
+	<circle
+		v-for="(angle, i) in graduations"
+		:key="i"
+		:cx="5 + (Math.sin(angle) * (5 - graduationsPadding))"
+		:cy="5 - (Math.cos(angle) * (5 - graduationsPadding))"
+		:r="i % 5 == 0 ? 0.125 : 0.05"
+		:fill="i % 5 == 0 ? majorGraduationColor : minorGraduationColor"
 	/>
 
 	<line
@@ -82,12 +83,12 @@ const graduations = computed(() => {
 	return angles;
 });
 
-function tick() {
+function tick(): void {
 	now.value = new Date();
 }
 
 onMounted(() => {
-	const update = () => {
+	const update = (): void => {
 		if (enabled.value) {
 			tick();
 			window.setTimeout(update, 1000);

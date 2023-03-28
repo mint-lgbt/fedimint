@@ -3,13 +3,13 @@ module.exports = {
 	env: {
 		"node": false
 	},
+	parser: "@typescript-eslint/parser",
 	parserOptions: {
-		"parser": "@typescript-eslint/parser",
 		tsconfigRootDir: __dirname,
-		//project: ['./tsconfig.json'],
+		project: ['./tsconfig.json'],
 	},
 	extends: [
-		//"../shared/.eslintrc.js",
+		"../shared/.eslintrc.js",
 	],
 	globals: {
 		"require": false,

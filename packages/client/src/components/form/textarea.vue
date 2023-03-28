@@ -14,6 +14,7 @@
 			:pattern="pattern"
 			:autocomplete="autocomplete ? 'on' : 'off'"
 			:spellcheck="spellcheck"
+			:maxlength="max"
 			@focus="focused = true"
 			@blur="focused = false"
 			@keydown="onKeydown($event)"
@@ -27,7 +28,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineComponent, onMounted, onUnmounted, nextTick, ref, watch, computed, toRefs } from 'vue';
+import { onMounted, nextTick, watch, toRefs } from 'vue';
 import { debounce } from 'throttle-debounce';
 import MkButton from '@/components/ui/button.vue';
 import { i18n } from '@/i18n';
@@ -41,11 +42,10 @@ const emit = defineEmits<{
 
 const props = withDefaults(defineProps<{
 	modelValue: string;
-	type?: string;
 	required?: boolean;
 	readonly?: boolean;
 	disabled?: boolean;
-	pattern?: string;
+	pattern?: string | undefined;
 	placeholder?: string;
 	autofocus?: boolean;
 	autocomplete?: boolean;
@@ -55,7 +55,10 @@ const props = withDefaults(defineProps<{
 	pre?: boolean;
 	debounce?: boolean;
 	manualSave?: boolean;
+	max?: number;
 }>(), {
+	pattern: undefined,
+	placeholder: '',
 	autofocus: false,
 	tall: false,
 	pre: false,
@@ -66,12 +69,11 @@ const { modelValue } = toRefs(props);
 // modelValue is read only, so a separate ref is needed.
 const v = $ref(modelValue.value);
 
+watch(modelValue, () => v = modelValue.value);
+
 let focused = $ref(false);
 let changed = $ref(false);
-let invalid = $ref(false);
 let inputEl: HTMLTextAreaElement | null = $ref(null);
-
-const filled = computed(() => modelValue.value !== '' && modelValue.value != null);
 
 const focus = (): void => {
 	inputEl?.focus();
@@ -103,8 +105,6 @@ watch($$(v), () => {
 			updated();
 		}
 	}
-
-	invalid = inputEl?.validity.badInput ?? false;
 });
 
 onMounted(() => {

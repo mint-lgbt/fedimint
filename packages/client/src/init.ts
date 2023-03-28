@@ -20,7 +20,7 @@ import JSON5 from 'json5';
 import widgets from '@/widgets';
 import directives from '@/directives';
 import components from '@/components';
-import { version, ui, lang, host } from '@/config';
+import { version, ui, lang } from '@/config';
 import { applyTheme } from '@/scripts/theme';
 import { isDeviceDarkmode } from '@/scripts/is-device-darkmode';
 import { i18n } from '@/i18n';
@@ -30,8 +30,8 @@ import * as sound from '@/scripts/sound';
 import { $i, refreshAccount, login, updateAccount, signout } from '@/account';
 import { defaultStore, ColdDeviceStorage } from '@/store';
 import { fetchInstance, instance } from '@/instance';
+import { mainRouter } from '@/router';
 import { makeHotkey } from '@/scripts/hotkey';
-import { search } from '@/scripts/search';
 import { deviceKind } from '@/scripts/device-kind';
 import { initializeSw } from '@/scripts/initialize-sw';
 import { reloadChannel } from '@/scripts/unison-reload';
@@ -184,8 +184,6 @@ import { getAccountFromId } from '@/scripts/get-account-from-id';
 		$i,
 		$store: defaultStore,
 		$instance: instance,
-		$t: i18n.t,
-		$ts: i18n.ts,
 	};
 
 	widgets(app);
@@ -334,7 +332,9 @@ import { getAccountFromId } from '@/scripts/get-account-from-id';
 		'd': (): void => {
 			defaultStore.set('darkMode', !defaultStore.state.darkMode);
 		},
-		's': search,
+		's': (): void => {
+			mainRouter.push('/search');
+		},
 	};
 
 	if ($i) {

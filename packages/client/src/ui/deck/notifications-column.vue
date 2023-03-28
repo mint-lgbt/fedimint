@@ -1,5 +1,5 @@
 <template>
-<XColumn :column="column" :is-stacked="isStacked" :func="{ handler: func, title: $ts.notificationSetting }" @parent-focus="$event => emit('parent-focus', $event)">
+<XColumn :column="column" :is-stacked="isStacked" :func="{ handler: func, title: i18n.ts.notificationSetting }" @parent-focus="$event => emit('parent-focus', $event)">
 	<template #header><i class="fas fa-bell" style="margin-right: 8px;"></i>{{ column.name }}</template>
 
 	<XNotifications :include-types="column.includingTypes"/>
@@ -9,10 +9,10 @@
 <script lang="ts" setup>
 import { defineAsyncComponent } from 'vue';
 import XColumn from './column.vue';
+import { updateColumn , Column } from './deck-store';
 import XNotifications from '@/components/notifications.vue';
 import * as os from '@/os';
-import { updateColumn } from './deck-store';
-import { Column } from './deck-store';
+import { i18n } from '@/i18n';
 
 const props = defineProps<{
 	column: Column;
@@ -30,7 +30,7 @@ function func() {
 		done: async (res) => {
 			const { includingTypes } = res;
 			updateColumn(props.column.id, {
-				includingTypes: includingTypes
+				includingTypes,
 			});
 		},
 	}, 'closed');

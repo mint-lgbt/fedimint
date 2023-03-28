@@ -1,19 +1,19 @@
 <template>
 <div>
 	<MkStickyContainer>
-		<template #header><XHeader :actions="headerActions" :tabs="headerTabs"/></template>
+		<template #header><MkPageHeader :actions="headerActions"/></template>
 		<MkSpacer :content-max="900">
 			<div class="lknzcolw">
 				<div class="users">
 					<div class="inputs">
-						<MkSelect v-model="sort" style="flex: 1;">
+						<FormSelect v-model="sort" style="flex: 1;">
 							<template #label>{{ i18n.ts.sort }}</template>
 							<option value="-createdAt">{{ i18n.ts.registeredDate }} ({{ i18n.ts.ascendingOrder }})</option>
 							<option value="+createdAt">{{ i18n.ts.registeredDate }} ({{ i18n.ts.descendingOrder }})</option>
 							<option value="-updatedAt">{{ i18n.ts.lastUsed }} ({{ i18n.ts.ascendingOrder }})</option>
 							<option value="+updatedAt">{{ i18n.ts.lastUsed }} ({{ i18n.ts.descendingOrder }})</option>
-						</MkSelect>
-						<MkSelect v-model="state" style="flex: 1;">
+						</FormSelect>
+						<FormSelect v-model="state" style="flex: 1;">
 							<template #label>{{ i18n.ts.state }}</template>
 							<option value="all">{{ i18n.ts.all }}</option>
 							<option value="available">{{ i18n.ts.normal }}</option>
@@ -21,23 +21,23 @@
 							<option value="moderator">{{ i18n.ts.moderator }}</option>
 							<option value="silenced">{{ i18n.ts.silence }}</option>
 							<option value="suspended">{{ i18n.ts.suspend }}</option>
-						</MkSelect>
-						<MkSelect v-model="origin" style="flex: 1;">
+						</FormSelect>
+						<FormSelect v-model="origin" style="flex: 1;">
 							<template #label>{{ i18n.ts.instance }}</template>
 							<option value="combined">{{ i18n.ts.all }}</option>
 							<option value="local">{{ i18n.ts.local }}</option>
 							<option value="remote">{{ i18n.ts.remote }}</option>
-						</MkSelect>
+						</FormSelect>
 					</div>
 					<div class="inputs">
-						<MkInput v-model="searchUsername" style="flex: 1;" type="text" :spellcheck="false" @update:modelValue="$refs.users.reload()">
+						<FormInput v-model="searchUsername" style="flex: 1;" type="text" :spellcheck="false" @update:model-value="$refs.users.reload()">
 							<template #prefix>@</template>
 							<template #label>{{ i18n.ts.username }}</template>
-						</MkInput>
-						<MkInput v-model="searchHost" style="flex: 1;" type="text" :spellcheck="false" :disabled="pagination.params.origin === 'local'" @update:modelValue="$refs.users.reload()">
+						</FormInput>
+						<FormInput v-model="searchHost" style="flex: 1;" type="text" :spellcheck="false" :disabled="pagination.params.origin === 'local'" @update:model-value="$refs.users.reload()">
 							<template #prefix>@</template>
 							<template #label>{{ i18n.ts.host }}</template>
-						</MkInput>
+						</FormInput>
 					</div>
 
 					<MkPagination v-slot="{items}" ref="paginationComponent" :pagination="pagination" class="users">
@@ -54,9 +54,8 @@
 
 <script lang="ts" setup>
 import { computed } from 'vue';
-import XHeader from './_header_.vue';
-import MkInput from '@/components/form/input.vue';
-import MkSelect from '@/components/form/select.vue';
+import FormInput from '@/components/form/input.vue';
+import FormSelect from '@/components/form/select.vue';
 import MkPagination from '@/components/ui/pagination.vue';
 import * as os from '@/os';
 import { lookupUser } from '@/scripts/lookup-user';
@@ -75,22 +74,22 @@ const pagination = {
 	endpoint: 'admin/show-users' as const,
 	limit: 10,
 	params: computed(() => ({
-		sort: sort,
-		state: state,
-		origin: origin,
+		sort,
+		state,
+		origin,
 		username: searchUsername,
 		hostname: searchHost,
 	})),
 	offsetMode: true,
 };
 
-function searchUser() {
+function searchUser(): void {
 	os.selectUser().then(user => {
 		show(user);
 	});
 }
 
-async function addUser() {
+async function addUser(): Promise<void> {
 	const { canceled: canceled1, result: username } = await os.inputText({
 		title: i18n.ts.username,
 	});
@@ -103,14 +102,14 @@ async function addUser() {
 	if (canceled2) return;
 
 	os.apiWithDialog('admin/accounts/create', {
-		username: username,
-		password: password,
-	}).then(res => {
+		username,
+		password,
+	}).then(() => {
 		paginationComponent.reload();
 	});
 }
 
-function show(user) {
+function show(user): void {
 	os.pageWindow(`/user-info/${user.id}`);
 }
 
@@ -129,8 +128,6 @@ const headerActions = $computed(() => [{
 	text: i18n.ts.lookup,
 	handler: lookupUser,
 }]);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata(computed(() => ({
 	title: i18n.ts.users,

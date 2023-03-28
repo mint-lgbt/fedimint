@@ -1,7 +1,7 @@
 import { Brackets } from 'typeorm';
+import { notificationTypes } from 'foundkey-js';
 import { Notifications, Followings, Mutings, Users, UserProfiles } from '@/models/index.js';
-import { notificationTypes } from '@/types.js';
-import read from '@/services/note/read.js';
+import { readNote } from '@/services/note/read.js';
 import { readNotification } from '../../common/read-notification.js';
 import define from '../../define.js';
 import { makePaginationQuery } from '../../common/make-pagination-query.js';
@@ -72,7 +72,7 @@ export default define(meta, paramDef, async (ps, user) => {
 
 	const suspendedQuery = Users.createQueryBuilder('users')
 		.select('users.id')
-		.where('users.isSuspended = TRUE');
+		.where('users.isSuspended');
 
 	const query = makePaginationQuery(Notifications.createQueryBuilder('notification'), ps.sinceId, ps.untilId)
 		.andWhere('notification.notifieeId = :meId', { meId: user.id })
@@ -137,7 +137,7 @@ export default define(meta, paramDef, async (ps, user) => {
 	const notes = notifications.filter(notification => ['mention', 'reply', 'quote'].includes(notification.type)).map(notification => notification.note!);
 
 	if (notes.length > 0) {
-		read(user.id, notes);
+		readNote(user.id, notes);
 	}
 
 	return await Notifications.packMany(notifications, user.id);

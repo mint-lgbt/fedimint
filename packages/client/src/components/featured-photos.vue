@@ -1,17 +1,9 @@
 <template>
-<div v-if="meta" class="xfbouadm" :style="{ backgroundImage: `url(${ meta.backgroundImageUrl })` }"></div>
+<div class="xfbouadm" :style="{ backgroundImage: `url(${ instance.backgroundImageUrl })` }"></div>
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue';
-import * as Misskey from 'misskey-js';
-import * as os from '@/os';
-
-const meta = ref<Misskey.entities.DetailedInstanceMetadata>();
-
-os.api('meta', { detail: true }).then(gotMeta => {
-	meta.value = gotMeta;
-});
+import { instance } from '@/instance';
 </script>
 
 <style lang="scss" scoped>

@@ -1,17 +1,27 @@
 import { URL } from 'node:url';
 import * as parse5 from 'parse5';
-import * as TreeAdapter from '../../node_modules/parse5/dist/tree-adapters/default.js';
+import * as TreeAdapter from 'parse5/dist/tree-adapters/default';
 
-const treeAdapter = TreeAdapter.defaultTreeAdapter;
+const treeAdapter = parse5.defaultTreeAdapter;
 
 const urlRegex = /^https?:\/\/[\w\/:%#@$&?!()\[\]~.,=+\-]+/;
 const urlRegexFull = /^https?:\/\/[\w\/:%#@$&?!()\[\]~.,=+\-]+$/;
 
-export function fromHtml(html: string, hashtagNames?: string[]): string {
-	// some AP servers like Pixelfed use br tags as well as newlines
-	html = html.replace(/<br\s?\/?>\r?\n/gi, '\n');
+function getAttr(node: TreeAdapter.Node, attr: string): string {
+	return node.attrs.find(({ name }) => name === attr)?.value;
+}
+function attrHas(node: TreeAdapter.Node, attr: string, value: string): boolean {
+	const attrValue = getAttr(node, attr);
+	if (!attrValue) return false;
 
-	const dom = parse5.parseFragment(html);
+	return new RegExp('\\b' + value + '\\b').test(attrValue);
+}
+
+export function fromHtml(html: string, quoteUri?: string | null): string {
+	const dom = parse5.parseFragment(
+		// some AP servers like Pixelfed use br tags as well as newlines
+		html.replace(/<br\s?\/?>\r?\n/gi, '\n'),
+	);
 
 	let text = '';
 
@@ -26,7 +36,7 @@ export function fromHtml(html: string, hashtagNames?: string[]): string {
 		if (!treeAdapter.isElementNode(node)) return '';
 		if (node.nodeName === 'br') return '\n';
 
-		if (node.childNodes) {
+		if (node.childNodes.length > 0) {
 			return node.childNodes.map(n => getText(n)).join('');
 		}
 
@@ -34,14 +44,14 @@ export function fromHtml(html: string, hashtagNames?: string[]): string {
 	}
 
 	function appendChildren(childNodes: TreeAdapter.ChildNode[]): void {
-		if (childNodes) {
+		if (childNodes.length > 0) {
 			for (const n of childNodes) {
 				analyze(n);
 			}
 		}
 	}
 
-	function analyze(node: TreeAdapter.Node) {
+	function analyze(node: TreeAdapter.Node): void {
 		if (treeAdapter.isTextNode(node)) {
 			text += node.value;
 			return;
@@ -59,25 +69,23 @@ export function fromHtml(html: string, hashtagNames?: string[]): string {
 			case 'a':
 			{
 				const txt = getText(node);
-				const rel = node.attrs.find(x => x.name === 'rel');
-				const href = node.attrs.find(x => x.name === 'href');
+				const href = getAttr(node, 'href');
 
-				// ハッシュタグ
-				if (hashtagNames && href && hashtagNames.map(x => x.toLowerCase()).includes(txt.toLowerCase())) {
+				// hashtags
+				if (txt.startsWith('#') && href && (attrHas(node, 'rel', 'tag') || attrHas(node, 'class', 'hashtag'))) {
 					text += txt;
-				// メンション
-				} else if (txt.startsWith('@') && !(rel && rel.value.match(/^me /))) {
+				// mentions
+				} else if (txt.startsWith('@') && !attrHas(node, 'rel', 'me')) {
 					const part = txt.split('@');
 
 					if (part.length === 2 && href) {
-						//#region ホスト名部分が省略されているので復元する
-						const acct = `${txt}@${(new URL(href.value)).hostname}`;
+						// restore the host name part
+						const acct = `${txt}@${(new URL(href)).hostname}`;
 						text += acct;
-						//#endregion
 					} else if (part.length === 3) {
 						text += txt;
 					}
-				// その他
+				// other
 				} else {
 					const generateLink = () => {
 						if (!href && !txt) {
@@ -86,17 +94,17 @@ export function fromHtml(html: string, hashtagNames?: string[]): string {
 						if (!href) {
 							return txt;
 						}
-						if (!txt || txt === href.value) {	// #6383: Missing text node
-							if (href.value.match(urlRegexFull)) {
-								return href.value;
+						if (!txt || txt === href) { // #6383: Missing text node
+							if (href.match(urlRegexFull)) {
+								return href;
 							} else {
-								return `<${href.value}>`;
+								return `<${href}>`;
 							}
 						}
-						if (href.value.match(urlRegex) && !href.value.match(urlRegexFull)) {
-							return `[${txt}](<${href.value}>)`;	// #6846
+						if (href.match(urlRegex) && !href.match(urlRegexFull)) {
+							return `[${txt}](<${href}>)`; // #6846
 						} else {
-							return `[${txt}](${href.value})`;
+							return `[${txt}](${href})`;
 						}
 					};
 
@@ -200,6 +208,16 @@ export function fromHtml(html: string, hashtagNames?: string[]): string {
 			{
 				text += '\n';
 				appendChildren(node.childNodes);
+				break;
+			}
+
+			case 'span':
+			{
+				if (attrHas(node, 'class', 'quote-inline') && quoteUri && getText(node).trim() === `RE: ${quoteUri}`) {
+					// embedded quote thingy for backwards compatibility, don't show it
+				} else {
+					appendChildren(node.childNodes);
+				}
 				break;
 			}
 

@@ -5,17 +5,16 @@
 	</FormTextarea>
 
 	<div class="_formBlock" style="display: flex; gap: var(--margin); flex-wrap: wrap;">
-		<FormButton :disabled="installThemeCode == null" inline @click="() => preview(installThemeCode)"><i class="fas fa-eye"></i> {{ i18n.ts.preview }}</FormButton>
-		<FormButton :disabled="installThemeCode == null" primary inline @click="() => install(installThemeCode)"><i class="fas fa-check"></i> {{ i18n.ts.install }}</FormButton>
+		<MkButton :disabled="installThemeCode == null" inline @click="() => preview(installThemeCode)"><i class="fas fa-eye"></i> {{ i18n.ts.preview }}</MkButton>
+		<MkButton :disabled="installThemeCode == null" primary inline @click="() => install(installThemeCode)"><i class="fas fa-check"></i> {{ i18n.ts.install }}</MkButton>
 	</div>
 </div>
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import JSON5 from 'json5';
 import FormTextarea from '@/components/form/textarea.vue';
-import FormButton from '@/components/ui/button.vue';
+import MkButton from '@/components/ui/button.vue';
 import { applyTheme, validateTheme } from '@/scripts/theme';
 import * as os from '@/os';
 import { addTheme, getThemes } from '@/theme-store';
@@ -68,10 +67,6 @@ async function install(code: string): Promise<void> {
 		text: i18n.t('_theme.installed', { name: theme.name }),
 	});
 }
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts._theme.install,

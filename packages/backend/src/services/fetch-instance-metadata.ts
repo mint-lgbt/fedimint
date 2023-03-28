@@ -2,6 +2,7 @@ import { URL } from 'node:url';
 import { DOMWindow, JSDOM } from 'jsdom';
 import fetch from 'node-fetch';
 import tinycolor from 'tinycolor2';
+import { DAY } from '@/const.js';
 import { getJson, getHtml, getAgentByUrl } from '@/misc/fetch.js';
 import { Instance } from '@/models/entities/instance.js';
 import { Instances } from '@/models/index.js';
@@ -16,7 +17,7 @@ export async function fetchInstanceMetadata(instance: Instance, force = false): 
 	if (!force) {
 		const _instance = await Instances.findOneBy({ host: instance.host });
 		const now = Date.now();
-		if (_instance && _instance.infoUpdatedAt && (now - _instance.infoUpdatedAt.getTime() < 1000 * 60 * 60 * 24)) {
+		if (_instance && _instance.infoUpdatedAt && (now - _instance.infoUpdatedAt.getTime() < DAY)) {
 			unlock();
 			return;
 		}
@@ -80,6 +81,7 @@ type NodeInfo = {
 		nodeName?: any;
 		nodeDescription?: any;
 		description?: any;
+		themeColor?: any;
 		maintainer?: {
 			name?: any;
 			email?: any;
@@ -124,7 +126,8 @@ async function fetchNodeinfo(instance: Instance): Promise<NodeInfo> {
 
 		return info as NodeInfo;
 	} catch (e) {
-		logger.error(`Failed to fetch nodeinfo of ${instance.host}: ${e.message}`);
+		const message = e instanceof Error ? e.message : e;
+		logger.error(`Failed to fetch nodeinfo of ${instance.host}: ${message}`);
 
 		throw e;
 	}
@@ -235,7 +238,7 @@ async function getSiteName(info: NodeInfo | null, doc: DOMWindow['document'] | n
 	}
 
 	if (manifest) {
-		return manifest?.name || manifest?.short_name;
+		return manifest.name || manifest.short_name;
 	}
 
 	return null;
@@ -261,7 +264,7 @@ async function getDescription(info: NodeInfo | null, doc: DOMWindow['document'] 
 	}
 
 	if (manifest) {
-		return manifest?.name || manifest?.short_name;
+		return manifest.name || manifest.short_name;
 	}
 
 	return null;

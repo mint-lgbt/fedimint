@@ -7,6 +7,8 @@ import { ApiError } from '../../error.js';
 export const meta = {
 	tags: ['channels'],
 
+	description: 'Creates a new channel with the current user as its administrator.',
+
 	requireCredential: true,
 
 	kind: 'write:channels',
@@ -17,13 +19,7 @@ export const meta = {
 		ref: 'Channel',
 	},
 
-	errors: {
-		noSuchFile: {
-			message: 'No such file.',
-			code: 'NO_SUCH_FILE',
-			id: 'cd1e9f3e-5a12-4ab4-96f6-5d0a2cc32050',
-		},
-	},
+	errors: ['NO_SUCH_FILE'],
 } as const;
 
 export const paramDef = {
@@ -38,16 +34,13 @@ export const paramDef = {
 
 // eslint-disable-next-line import/no-default-export
 export default define(meta, paramDef, async (ps, user) => {
-	let banner = null;
 	if (ps.bannerId != null) {
-		banner = await DriveFiles.findOneBy({
+		const bannerExists = await DriveFiles.countBy({
 			id: ps.bannerId,
 			userId: user.id,
 		});
 
-		if (banner == null) {
-			throw new ApiError(meta.errors.noSuchFile);
-		}
+		if (!bannerExists) throw new ApiError('NO_SUCH_FILE');
 	}
 
 	const channel = await Channels.insert({
@@ -55,8 +48,8 @@ export default define(meta, paramDef, async (ps, user) => {
 		createdAt: new Date(),
 		userId: user.id,
 		name: ps.name,
-		description: ps.description || null,
-		bannerId: banner ? banner.id : null,
+		description: ps.description,
+		bannerId: ps.bannerId,
 	} as Channel).then(x => Channels.findOneByOrFail(x.identifiers[0]));
 
 	return await Channels.pack(channel, user);

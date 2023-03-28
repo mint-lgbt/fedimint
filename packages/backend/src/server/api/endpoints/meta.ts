@@ -1,14 +1,17 @@
-import { IsNull, MoreThan } from 'typeorm';
+import { IsNull } from 'typeorm';
 import config from '@/config/index.js';
 import { fetchMeta } from '@/misc/fetch-meta.js';
 import { Emojis, Users } from '@/models/index.js';
-import { MAX_NOTE_TEXT_LENGTH } from '@/const.js';
 import define from '../define.js';
+import { translatorAvailable } from '../common/translator.js';
 
 export const meta = {
 	tags: ['meta'],
 
 	requireCredential: false,
+
+	allowGet: true,
+	cacheSec: 60,
 
 	res: {
 		type: 'object',
@@ -167,22 +170,6 @@ export const meta = {
 				type: 'boolean',
 				optional: false, nullable: false,
 			},
-			enableTwitterIntegration: {
-				type: 'boolean',
-				optional: false, nullable: false,
-			},
-			enableGithubIntegration: {
-				type: 'boolean',
-				optional: false, nullable: false,
-			},
-			enableDiscordIntegration: {
-				type: 'boolean',
-				optional: false, nullable: false,
-			},
-			enableServiceWorker: {
-				type: 'boolean',
-				optional: false, nullable: false,
-			},
 			translatorAvailable: {
 				type: 'boolean',
 				optional: false, nullable: false,
@@ -190,6 +177,15 @@ export const meta = {
 			proxyAccountName: {
 				type: 'string',
 				optional: false, nullable: true,
+			},
+			images: {
+				type: 'object',
+				optional: false, nullable: false,
+				properties: {
+					info: { type: 'string' },
+					notFound: { type: 'string' },
+					error: { type: 'string' },
+				},
 			},
 			features: {
 				type: 'object',
@@ -223,21 +219,10 @@ export const meta = {
 						type: 'boolean',
 						optional: false, nullable: false,
 					},
-					twitter: {
-						type: 'boolean',
-						optional: false, nullable: false,
-					},
-					github: {
-						type: 'boolean',
-						optional: false, nullable: false,
-					},
-					discord: {
-						type: 'boolean',
-						optional: false, nullable: false,
-					},
 					serviceWorker: {
 						type: 'boolean',
-						optional: false, nullable: false,
+						optional: true, nullable: false,
+						default: true,
 					},
 					miauth: {
 						type: 'boolean',
@@ -248,18 +233,27 @@ export const meta = {
 			},
 		},
 	},
+
+	v2: {
+		method: 'get',
+	},
 } as const;
 
 export const paramDef = {
 	type: 'object',
 	properties: {
-		detail: { type: 'boolean', default: true },
+		detail: {
+			deprecated: true,
+			description: 'This parameter is ignored. You will always get all details (as if it was `true`).',
+			type: 'boolean',
+			default: true,
+		},
 	},
 	required: [],
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, paramDef, async (ps, me) => {
+export default define(meta, paramDef, async () => {
 	const instance = await fetchMeta(true);
 
 	const emojis = await Emojis.find({
@@ -276,7 +270,7 @@ export default define(meta, paramDef, async (ps, me) => {
 		},
 	});
 
-	const response: any = {
+	return {
 		maintainerName: instance.maintainerName,
 		maintainerEmail: instance.maintainerEmail,
 
@@ -303,35 +297,26 @@ export default define(meta, paramDef, async (ps, me) => {
 		iconUrl: instance.iconUrl,
 		backgroundImageUrl: instance.backgroundImageUrl,
 		logoImageUrl: instance.logoImageUrl,
-		maxNoteTextLength: MAX_NOTE_TEXT_LENGTH, // 後方互換性のため
+		maxNoteTextLength: config.maxNoteTextLength,
 		emojis: await Emojis.packMany(emojis),
 		defaultLightTheme: instance.defaultLightTheme,
 		defaultDarkTheme: instance.defaultDarkTheme,
 		enableEmail: instance.enableEmail,
 
-		enableTwitterIntegration: instance.enableTwitterIntegration,
-		enableGithubIntegration: instance.enableGithubIntegration,
-		enableDiscordIntegration: instance.enableDiscordIntegration,
+		translatorAvailable: translatorAvailable(instance),
 
-		enableServiceWorker: instance.enableServiceWorker,
+		pinnedPages: instance.pinnedPages,
+		pinnedClipId: instance.pinnedClipId,
+		cacheRemoteFiles: instance.cacheRemoteFiles,
+		requireSetup: (await Users.countBy({
+			host: IsNull(),
+		})) === 0,
 
-		translatorAvailable: instance.deeplAuthKey != null,
+		proxyAccountName: instance.proxyAccountId ? (await Users.pack(instance.proxyAccountId).catch(() => null))?.username : null,
 
-		...(ps.detail ? {
-			pinnedPages: instance.pinnedPages,
-			pinnedClipId: instance.pinnedClipId,
-			cacheRemoteFiles: instance.cacheRemoteFiles,
-			requireSetup: (await Users.countBy({
-				host: IsNull(),
-			})) === 0,
-		} : {}),
-	};
+		images: config.images,
 
-	if (ps.detail) {
-		const proxyAccount = instance.proxyAccountId ? await Users.pack(instance.proxyAccountId).catch(() => null) : null;
-
-		response.proxyAccountName = proxyAccount ? proxyAccount.username : null;
-		response.features = {
+		features: {
 			registration: !instance.disableRegistration,
 			localTimeLine: !instance.disableLocalTimeline,
 			globalTimeLine: !instance.disableGlobalTimeline,
@@ -340,13 +325,8 @@ export default define(meta, paramDef, async (ps, me) => {
 			hcaptcha: instance.enableHcaptcha,
 			recaptcha: instance.enableRecaptcha,
 			objectStorage: instance.useObjectStorage,
-			twitter: instance.enableTwitterIntegration,
-			github: instance.enableGithubIntegration,
-			discord: instance.enableDiscordIntegration,
-			serviceWorker: instance.enableServiceWorker,
+			serviceWorker: true,
 			miauth: true,
-		};
-	}
-
-	return response;
+		},
+	};
 });

@@ -20,7 +20,7 @@ export class FollowRequest {
 	})
 	public followeeId: User['id'];
 
-	@ManyToOne(type => User, {
+	@ManyToOne(() => User, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()
@@ -33,14 +33,14 @@ export class FollowRequest {
 	})
 	public followerId: User['id'];
 
-	@ManyToOne(type => User, {
+	@ManyToOne(() => User, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()
 	public follower: User | null;
 
 	@Column('varchar', {
-		length: 128, nullable: true,
+		length: 2048, nullable: true,
 		comment: 'id of Follow Activity.',
 	})
 	public requestId: string | null;

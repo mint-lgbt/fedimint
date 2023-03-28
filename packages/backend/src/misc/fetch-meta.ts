@@ -1,44 +1,61 @@
+import push from 'web-push';
 import { db } from '@/db/postgre.js';
 import { Meta } from '@/models/entities/meta.js';
+import { getFetchInstanceMetadataLock } from '@/misc/app-lock.js';
 
-let cache: Meta;
+let cache: Meta | undefined;
 
-export async function fetchMeta(noCache = false): Promise<Meta> {
-	if (!noCache && cache) return cache;
+/**
+ * Performs the primitive database operation to set the server configuration
+ */
+export async function setMeta(meta: Meta): Promise<void> {
+	const unlock = await getFetchInstanceMetadataLock('localhost');
 
-	return await db.transaction(async transactionalEntityManager => {
-		// 過去のバグでレコードが複数出来てしまっている可能性があるので新しいIDを優先する
-		const metas = await transactionalEntityManager.find(Meta, {
+	// try to mitigate older bugs where multiple meta entries may have been created
+	await db.manager.clear(Meta);
+	await db.manager.insert(Meta, meta);
+
+	cache = meta;
+
+	unlock();
+}
+
+/**
+ * Performs the primitive database operation to fetch server configuration.
+ * If there is no entry yet, inserts a new one.
+ * Writes to `cache` instead of returning.
+ */
+async function getMeta(): Promise<void> {
+	const unlock = await getFetchInstanceMetadataLock('localhost');
+
+	// new IDs are prioritised because multiple records may have been created due to past bugs
+	let metas = await db.manager.find(Meta, {
+		order: {
+			id: 'DESC',
+		},
+	});
+	if (metas.length === 0) {
+		const { publicKey, privateKey } = push.generateVAPIDKeys();
+		await db.manager.insert(Meta, {
+			id: 'x',
+			swPublicKey: publicKey,
+			swPrivateKey: privateKey,
+		});
+		metas = await db.manager.find(Meta, {
 			order: {
 				id: 'DESC',
 			},
 		});
+	}
+	cache = metas[0];
 
-		const meta = metas[0];
-
-		if (meta) {
-			cache = meta;
-			return meta;
-		} else {
-			// metaが空のときfetchMetaが同時に呼ばれるとここが同時に呼ばれてしまうことがあるのでフェイルセーフなupsertを使う
-			const saved = await transactionalEntityManager
-				.upsert(
-					Meta,
-					{
-						id: 'x',
-					},
-					['id'],
-				)
-				.then((x) => transactionalEntityManager.findOneByOrFail(Meta, x.identifiers[0]));
-
-			cache = saved;
-			return saved;
-		}
-	});
+	unlock();
 }
 
-setInterval(() => {
-	fetchMeta(true).then(meta => {
-		cache = meta;
-	});
-}, 1000 * 10);
+export async function fetchMeta(noCache = false): Promise<Meta> {
+	if (!noCache && cache) return cache;
+
+	await getMeta();
+
+	return cache!;
+}

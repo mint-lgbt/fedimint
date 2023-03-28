@@ -9,13 +9,7 @@ export const meta = {
 	requireCredential: true,
 	requireModerator: true,
 
-	errors: {
-		invalidUrl: {
-			message: 'Invalid URL',
-			code: 'INVALID_URL',
-			id: 'fb8c92d3-d4e5-44e7-b3d4-800d5cef8b2c',
-		},
-	},
+	errors: ['INVALID_URL'],
 
 	res: {
 		type: 'object',
@@ -55,11 +49,11 @@ export const paramDef = {
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, paramDef, async (ps, user) => {
+export default define(meta, paramDef, async (ps) => {
 	try {
-		if (new URL(ps.inbox).protocol !== 'https:') throw new Error('https only');
-	} catch {
-		throw new ApiError(meta.errors.invalidUrl);
+		if (new URL(ps.inbox).protocol !== 'https:') throw new ApiError('INVALID_URL', 'https only');
+	} catch (e) {
+		throw new ApiError('INVALID_URL', e);
 	}
 
 	return await addRelay(ps.inbox);

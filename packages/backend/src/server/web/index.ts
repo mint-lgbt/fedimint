@@ -18,7 +18,7 @@ import { KoaAdapter } from '@bull-board/koa';
 import { In, IsNull } from 'typeorm';
 import { fetchMeta } from '@/misc/fetch-meta.js';
 import config from '@/config/index.js';
-import { Users, Notes, UserProfiles, Pages, Channels, Clips, GalleryPosts } from '@/models/index.js';
+import { Users, Notes, UserProfiles, Pages, Channels, Clips, DriveFiles } from '@/models/index.js';
 import * as Acct from '@/misc/acct.js';
 import { getNoteSummary } from '@/misc/get-note-summary.js';
 import { queues } from '@/queue/queues.js';
@@ -136,7 +136,7 @@ router.get('/twemoji/(.*)', async ctx => {
 	ctx.set('Content-Security-Policy', 'default-src \'none\'; style-src \'unsafe-inline\'');
 
 	await send(ctx as any, path, {
-		root: `${_dirname}/../../../node_modules/@discordapp/twemoji/dist/svg/`,
+		root: `${_dirname}/../../../../../node_modules/@discordapp/twemoji/dist/svg/`,
 		maxage: 30 * DAY,
 	});
 });
@@ -150,7 +150,7 @@ router.get('/twemoji-badge/(.*)', async ctx => {
 	}
 
 	const mask = await sharp(
-		`${_dirname}/../../../node_modules/@discordapp/twemoji/dist/svg/${path.replace('.png', '')}.svg`,
+		`${_dirname}/../../../../../node_modules/@discordapp/twemoji/dist/svg/${path.replace('.png', '')}.svg`,
 		{ density: 1000 },
 	)
 		.resize(488, 488)
@@ -287,7 +287,7 @@ router.get(['/@:user', '/@:user/:sub'], async (ctx, next) => {
 			user, profile, me,
 			avatarUrl: await Users.getAvatarUrl(user),
 			sub: ctx.params.sub,
-			instanceName: meta.name || 'Misskey',
+			instanceName: meta.name || 'FoundKey',
 			icon: meta.iconUrl,
 			themeColor: meta.themeColor,
 		});
@@ -324,16 +324,76 @@ router.get('/notes/:note', async (ctx, next) => {
 	if (note) {
 		try {
 			// FIXME: packing with detail may throw an error if the reply or renote is not visible (#8774)
-			const _note = await Notes.pack(note);
+			const packedNote = await Notes.pack(note);
 			const profile = await UserProfiles.findOneByOrFail({ userId: note.userId });
 			const meta = await fetchMeta();
+
+			// If the note has a CW (is sensitive as a whole) or any of the files is sensitive or there are no
+			// files, they are not used for a preview.
+			let filesOpengraph = [];
+			if (!packedNote.cw || packedNote.files.length > 0 || packedNote.files.every(file => !file.isSensitive)) {
+				let limit = 4;
+				for (const file of packedNote.files) {
+					if (file.type.startsWith('image/')) {
+						filesOpengraph.push([
+							"og:image",
+							DriveFiles.getPublicUrl(file, true),
+						]);
+						filesOpengraph.push([
+							"og:image:type",
+							file.type,
+						]);
+						if (file.properties != null) {
+							filesOpengraph.push([
+								"og:image:width",
+								file.properties?.width,
+							]);
+							filesOpengraph.push([
+								"og:image:height",
+								file.properties?.height,
+							]);
+						}
+						if (file.comment) {
+							filesOpengraph.push([
+								"og:image:alt",
+								file.comment,
+							]);
+						}
+					} else if (file.type.startsWith('audio/')) {
+						filesOpengraph.push([
+							"og:audio",
+							DriveFiles.getPublicUrl(file),
+						]);
+						filesOpengraph.push([
+							"og:audio:type",
+							file.type,
+						]);
+					} else if (file.type.startsWith('video/')) {
+						filesOpengraph.push([
+							"og:video",
+							DriveFiles.getPublicUrl(file),
+						]);
+						filesOpengraph.push([
+							"og:video:type",
+							file.type,
+						]);
+					} else {
+						// doesn't count towards the limit
+						continue;
+					}
+
+					// limit the number of presented attachments
+					if (--limit < 0) break;
+				}
+			}
+
 			await ctx.render('note', {
-				note: _note,
+				note: packedNote,
 				profile,
-				avatarUrl: await Users.getAvatarUrl(await Users.findOneByOrFail({ id: note.userId })),
+				filesOpengraph,
 				// TODO: Let locale changeable by instance setting
-				summary: getNoteSummary(_note),
-				instanceName: meta.name || 'Misskey',
+				summary: getNoteSummary(packedNote),
+				instanceName: meta.name || 'FoundKey',
 				icon: meta.iconUrl,
 				themeColor: meta.themeColor,
 			});
@@ -376,7 +436,7 @@ router.get('/@:user/pages/:page', async (ctx, next) => {
 			page: _page,
 			profile,
 			avatarUrl: await Users.getAvatarUrl(await Users.findOneByOrFail({ id: page.userId })),
-			instanceName: meta.name || 'Misskey',
+			instanceName: meta.name || 'FoundKey',
 			icon: meta.iconUrl,
 			themeColor: meta.themeColor,
 		});
@@ -408,32 +468,7 @@ router.get('/clips/:clip', async (ctx, next) => {
 			clip: _clip,
 			profile,
 			avatarUrl: await Users.getAvatarUrl(await Users.findOneByOrFail({ id: clip.userId })),
-			instanceName: meta.name || 'Misskey',
-			icon: meta.iconUrl,
-			themeColor: meta.themeColor,
-		});
-
-		ctx.set('Cache-Control', 'public, max-age=15');
-
-		return;
-	}
-
-	await next();
-});
-
-// Gallery post
-router.get('/gallery/:post', async (ctx, next) => {
-	const post = await GalleryPosts.findOneBy({ id: ctx.params.post });
-
-	if (post) {
-		const _post = await GalleryPosts.pack(post);
-		const profile = await UserProfiles.findOneByOrFail({ userId: post.userId });
-		const meta = await fetchMeta();
-		await ctx.render('gallery-post', {
-			post: _post,
-			profile,
-			avatarUrl: await Users.getAvatarUrl(await Users.findOneByOrFail({ id: post.userId })),
-			instanceName: meta.name || 'Misskey',
+			instanceName: meta.name || 'FoundKey',
 			icon: meta.iconUrl,
 			themeColor: meta.themeColor,
 		});
@@ -457,7 +492,7 @@ router.get('/channels/:channel', async (ctx, next) => {
 		const meta = await fetchMeta();
 		await ctx.render('channel', {
 			channel: _channel,
-			instanceName: meta.name || 'Misskey',
+			instanceName: meta.name || 'FoundKey',
 			icon: meta.iconUrl,
 			themeColor: meta.themeColor,
 		});
@@ -485,21 +520,6 @@ router.get('/_info_card_', async ctx => {
 	});
 });
 
-router.get('/bios', async ctx => {
-	await ctx.render('bios', {
-		version: config.version,
-	});
-});
-
-router.get('/cli', async ctx => {
-	await ctx.render('cli', {
-		version: config.version,
-	});
-});
-
-const override = (source: string, target: string, depth = 0) =>
-	[, ...target.split('/').filter(x => x), ...source.split('/').filter(x => x).splice(depth)].join('/');
-
 router.get('/flush', async ctx => {
 	await ctx.render('flush');
 });
@@ -515,8 +535,8 @@ router.get('(.*)', async ctx => {
 	const meta = await fetchMeta();
 	await ctx.render('base', {
 		img: meta.bannerUrl,
-		title: meta.name || 'Misskey',
-		instanceName: meta.name || 'Misskey',
+		title: meta.name || 'FoundKey',
+		instanceName: meta.name || 'FoundKey',
 		desc: meta.description,
 		icon: meta.iconUrl,
 		themeColor: meta.themeColor,

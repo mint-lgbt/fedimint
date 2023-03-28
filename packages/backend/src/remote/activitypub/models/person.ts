@@ -1,5 +1,5 @@
-import { URL } from 'node:url';
 import promiseLimit from 'promise-limit';
+import { Not, IsNull } from 'typeorm';
 
 import config from '@/config/index.js';
 import { registerOrFetchInstanceDoc } from '@/services/register-or-fetch-instance-doc.js';
@@ -13,7 +13,7 @@ import { genId } from '@/misc/gen-id.js';
 import { instanceChart, usersChart } from '@/services/chart/index.js';
 import { UserPublickey } from '@/models/entities/user-publickey.js';
 import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
-import { toPuny } from '@/misc/convert-host.js';
+import { extractDbHost } from '@/misc/convert-host.js';
 import { UserProfile } from '@/models/entities/user-profile.js';
 import { toArray } from '@/prelude/array.js';
 import { fetchInstanceMetadata } from '@/services/fetch-instance-metadata.js';
@@ -23,16 +23,13 @@ import { StatusError } from '@/misc/fetch.js';
 import { uriPersonCache } from '@/services/user-cache.js';
 import { publishInternalEvent } from '@/services/stream.js';
 import { db } from '@/db/postgre.js';
+import { fromHtml } from '@/mfm/from-html.js';
+import { Resolver } from '@/remote/activitypub/resolver.js';
 import { apLogger } from '../logger.js';
-import { htmlToMfm } from '../misc/html-to-mfm.js';
-import { fromHtml } from '../../../mfm/from-html.js';
-import { isCollectionOrOrderedCollection, isCollection, IActor, getApId, getOneApHrefNullable, IObject, isPropertyValue, IApPropertyValue, getApType, isActor } from '../type.js';
-import Resolver from '../resolver.js';
+import { isCollectionOrOrderedCollection, isCollection, IActor, getApId, getOneApHrefNullable, IObject, isPropertyValue, getApType, isActor } from '../type.js';
 import { extractApHashtags } from './tag.js';
 import { resolveNote, extractEmojis } from './note.js';
 import { resolveImage } from './image.js';
-
-const logger = apLogger;
 
 const nameLength = 128;
 const summaryLength = 2048;
@@ -42,9 +39,7 @@ const summaryLength = 2048;
  * @param x Fetched object
  * @param uri Fetch target URI
  */
-function validateActor(x: IObject, uri: string): IActor {
-	const expectHost = toPuny(new URL(uri).hostname);
-
+function validateActor(x: IObject): IActor {
 	if (x == null) {
 		throw new Error('invalid Actor: object is null');
 	}
@@ -53,8 +48,17 @@ function validateActor(x: IObject, uri: string): IActor {
 		throw new Error(`invalid Actor type '${x.type}'`);
 	}
 
-	if (!(typeof x.id === 'string' && x.id.length > 0)) {
+	const uri = getApId(x);
+	if (uri == null) {
+		// Only transient objects or anonymous objects may not have an id or an id that is explicitly null.
+		// We consider all actors as not transient and not anonymous so require ids for them.
 		throw new Error('invalid Actor: wrong id');
+	}
+
+	// This check is security critical.
+	// Without this check, an entry could be inserted into UserPublickey for a local user.
+	if (extractDbHost(uri) === extractDbHost(config.url)) {
+		throw new StatusError('cannot resolve local user', 400, 'cannot resolve local user');
 	}
 
 	if (!(typeof x.inbox === 'string' && x.inbox.length > 0)) {
@@ -81,18 +85,14 @@ function validateActor(x: IObject, uri: string): IActor {
 		x.summary = truncate(x.summary, summaryLength);
 	}
 
-	const idHost = toPuny(new URL(x.id!).hostname);
-	if (idHost !== expectHost) {
-		throw new Error('invalid Actor: id has different host');
-	}
-
 	if (x.publicKey) {
 		if (typeof x.publicKey.id !== 'string') {
 			throw new Error('invalid Actor: publicKey.id is not a string');
 		}
 
-		const publicKeyIdHost = toPuny(new URL(x.publicKey.id).hostname);
-		if (publicKeyIdHost !== expectHost) {
+		// This is a security critical check to not insert or change an entry of
+		// UserPublickey to point to a local key id.
+		if (extractDbHost(uri) !== extractDbHost(x.publicKey.id)) {
 			throw new Error('invalid Actor: publicKey.id has different host');
 		}
 	}
@@ -101,17 +101,17 @@ function validateActor(x: IObject, uri: string): IActor {
 }
 
 /**
- * Personをフェッチします。
+ * Fetches a person.
  *
- * Misskeyに対象のPersonが登録されていればそれを返します。
+ * If the target Person is registered in FoundKey, it is returned.
  */
-export async function fetchPerson(uri: string, resolver?: Resolver): Promise<CacheableUser | null> {
+export async function fetchPerson(uri: string): Promise<CacheableUser | null> {
 	if (typeof uri !== 'string') throw new Error('uri is not string');
 
 	const cached = uriPersonCache.get(uri);
 	if (cached) return cached;
 
-	// URIがこのサーバーを指しているならデータベースからフェッチ
+	// If the URI points to this server, fetch from database.
 	if (uri.startsWith(config.url + '/')) {
 		const id = uri.split('/').pop();
 		const u = await Users.findOneBy({ id });
@@ -134,22 +134,14 @@ export async function fetchPerson(uri: string, resolver?: Resolver): Promise<Cac
 /**
  * Personを作成します。
  */
-export async function createPerson(uri: string, resolver?: Resolver): Promise<User> {
-	if (typeof uri !== 'string') throw new Error('uri is not string');
+export async function createPerson(value: string | IObject, resolver: Resolver): Promise<User> {
+	const object = await resolver.resolve(value) as any;
 
-	if (uri.startsWith(config.url)) {
-		throw new StatusError('cannot resolve local user', 400, 'cannot resolve local user');
-	}
+	const person = validateActor(object);
 
-	if (resolver == null) resolver = new Resolver();
+	apLogger.info(`Creating the Person: ${person.id}`);
 
-	const object = await resolver.resolve(uri) as any;
-
-	const person = validateActor(object, uri);
-
-	logger.info(`Creating the Person: ${person.id}`);
-
-	const host = toPuny(new URL(object.id).hostname);
+	const host = extractDbHost(object.id);
 
 	const { fields } = analyzeAttachments(person.attachment || []);
 
@@ -189,7 +181,7 @@ export async function createPerson(uri: string, resolver?: Resolver): Promise<Us
 
 			await transactionalEntityManager.save(new UserProfile({
 				userId: user.id,
-				description: person.summary ? htmlToMfm(truncate(person.summary, summaryLength), person.tag) : null,
+				description: person.summary ? fromHtml(truncate(person.summary, summaryLength)) : null,
 				url: getOneApHrefNullable(person.url),
 				fields,
 				birthday: bday ? bday[0] : null,
@@ -219,7 +211,7 @@ export async function createPerson(uri: string, resolver?: Resolver): Promise<Us
 				throw new Error('already registered');
 			}
 		} else {
-			logger.error(e instanceof Error ? e : new Error(e as string));
+			apLogger.error(e instanceof Error ? e : new Error(e as string));
 			throw e;
 		}
 	}
@@ -243,7 +235,7 @@ export async function createPerson(uri: string, resolver?: Resolver): Promise<Us
 	].map(img =>
 		img == null
 			? Promise.resolve(null)
-			: resolveImage(user!, img).catch(() => null),
+			: resolveImage(user!, img, resolver).catch(() => null),
 	));
 
 	const avatarId = avatar ? avatar.id : null;
@@ -260,7 +252,7 @@ export async function createPerson(uri: string, resolver?: Resolver): Promise<Us
 
 	//#region カスタム絵文字取得
 	const emojis = await extractEmojis(person.tag || [], host).catch(e => {
-		logger.info(`extractEmojis: ${e}`);
+		apLogger.info(`extractEmojis: ${e}`);
 		return [] as Emoji[];
 	});
 
@@ -271,61 +263,53 @@ export async function createPerson(uri: string, resolver?: Resolver): Promise<Us
 	});
 	//#endregion
 
-	await updateFeatured(user!.id).catch(err => logger.error(err));
+	await updateFeatured(user!.id, resolver).catch(err => apLogger.error(err));
 
 	return user!;
 }
 
 /**
- * Personの情報を更新します。
- * Misskeyに対象のPersonが登録されていなければ無視します。
- * @param uri URI of Person
+ * Update Person information.
+ * If the target Person is not registered in FoundKey, it is ignored.
+ * @param value URI of Person or Person itself
  * @param resolver Resolver
- * @param hint Hint of Person object (この値が正当なPersonの場合、Remote resolveをせずに更新に利用します)
+ * @param hint Hint of Person object (If this value is a valid Person, it is used for updating without Remote resolve.)
  */
-export async function updatePerson(uri: string, resolver?: Resolver | null, hint?: IObject): Promise<void> {
-	if (typeof uri !== 'string') throw new Error('uri is not string');
+export async function updatePerson(value: IObject | string, resolver: Resolver): Promise<void> {
+	const uri = getApId(value);
 
-	// URIがこのサーバーを指しているならスキップ
-	if (uri.startsWith(config.url + '/')) {
-		return;
-	}
-
-	//#region このサーバーに既に登録されているか
-	const exist = await Users.findOneBy({ uri }) as IRemoteUser;
+	// do we already know this user?
+	const exist = await Users.findOneBy({ uri, host: Not(IsNull()) }) as IRemoteUser;
 
 	if (exist == null) {
 		return;
 	}
-	//#endregion
 
-	if (resolver == null) resolver = new Resolver();
+	const object = await resolver.resolve(value);
 
-	const object = hint || await resolver.resolve(uri);
+	const person = validateActor(object);
 
-	const person = validateActor(object, uri);
+	apLogger.info(`Updating the Person: ${person.id}`);
 
-	logger.info(`Updating the Person: ${person.id}`);
-
-	// アバターとヘッダー画像をフェッチ
+	// Fetch avatar and banner image
 	const [avatar, banner] = await Promise.all([
 		person.icon,
 		person.image,
 	].map(img =>
 		img == null
 			? Promise.resolve(null)
-			: resolveImage(exist, img).catch(() => null),
+			: resolveImage(exist, img, resolver).catch(() => null),
 	));
 
-	// カスタム絵文字取得
+	// Get custom emoji
 	const emojis = await extractEmojis(person.tag || [], exist.host).catch(e => {
-		logger.info(`extractEmojis: ${e}`);
+		apLogger.info(`extractEmojis: ${e}`);
 		return [] as Emoji[];
 	});
 
 	const emojiNames = emojis.map(emoji => emoji.name);
 
-	const { fields } = analyzeAttachments(person.attachment || []);
+	const { fields } = analyzeAttachments(person.attachment ?? []);
 
 	const tags = extractApHashtags(person.tag).map(tag => normalizeForSearch(tag)).splice(0, 32);
 
@@ -334,7 +318,7 @@ export async function updatePerson(uri: string, resolver?: Resolver | null, hint
 	const updates = {
 		lastFetchedAt: new Date(),
 		inbox: person.inbox,
-		sharedInbox: person.sharedInbox || (person.endpoints ? person.endpoints.sharedInbox : undefined),
+		sharedInbox: person.sharedInbox ?? (person.endpoints ? person.endpoints.sharedInbox : undefined),
 		followersUri: person.followers ? getApId(person.followers) : undefined,
 		featured: person.featured,
 		emojis: emojiNames,
@@ -367,33 +351,32 @@ export async function updatePerson(uri: string, resolver?: Resolver | null, hint
 	await UserProfiles.update({ userId: exist.id }, {
 		url: getOneApHrefNullable(person.url),
 		fields,
-		description: person.summary ? htmlToMfm(truncate(person.summary, summaryLength), person.tag) : null,
+		description: person.summary ? fromHtml(truncate(person.summary, summaryLength)) : null,
 		birthday: bday ? bday[0] : null,
 		location: person['vcard:Address'] || null,
 	});
 
 	publishInternalEvent('remoteUserUpdated', { id: exist.id });
 
-	// ハッシュタグ更新
 	updateUsertags(exist, tags);
 
-	// 該当ユーザーが既にフォロワーになっていた場合はFollowingもアップデートする
+	// If the user in question is already a follower, followers will also be updated.
 	await Followings.update({
 		followerId: exist.id,
 	}, {
-		followerSharedInbox: person.sharedInbox || (person.endpoints ? person.endpoints.sharedInbox : undefined),
+		followerSharedInbox: person.sharedInbox ?? (person.endpoints ? person.endpoints.sharedInbox : undefined),
 	});
 
-	await updateFeatured(exist.id).catch(err => logger.error(err));
+	await updateFeatured(exist.id, resolver).catch(err => apLogger.error(err));
 }
 
 /**
- * Personを解決します。
+ * Resolve Person.
  *
- * Misskeyに対象のPersonが登録されていればそれを返し、そうでなければ
- * リモートサーバーからフェッチしてMisskeyに登録しそれを返します。
+ * If the target Person is registered in FoundKey, return it; otherwise, fetch it from a remote server and return it.
+ * Fetch the person from the remote server, register it in FoundKey, and return it.
  */
-export async function resolvePerson(uri: string, resolver?: Resolver): Promise<CacheableUser> {
+export async function resolvePerson(uri: string, resolver: Resolver): Promise<CacheableUser> {
 	if (typeof uri !== 'string') throw new Error('uri is not string');
 
 	//#region このサーバーに既に登録されていたらそれを返す
@@ -405,38 +388,7 @@ export async function resolvePerson(uri: string, resolver?: Resolver): Promise<C
 	//#endregion
 
 	// リモートサーバーからフェッチしてきて登録
-	if (resolver == null) resolver = new Resolver();
 	return await createPerson(uri, resolver);
-}
-
-const services: {
-		[x: string]: (id: string, username: string) => any
-	} = {
-		'misskey:authentication:twitter': (userId, screenName) => ({ userId, screenName }),
-		'misskey:authentication:github': (id, login) => ({ id, login }),
-		'misskey:authentication:discord': (id, name) => $discord(id, name),
-	};
-
-const $discord = (id: string, name: string) => {
-	if (typeof name !== 'string') {
-		name = 'unknown#0000';
-	}
-	const [username, discriminator] = name.split('#');
-	return { id, username, discriminator };
-};
-
-function addService(target: { [x: string]: any }, source: IApPropertyValue) {
-	const service = services[source.name];
-
-	if (typeof source.value !== 'string') {
-		source.value = 'unknown';
-	}
-
-	const [id, username] = source.value.split('@');
-
-	if (service) {
-		target[source.name.split(':')[2]] = service(id, username);
-	}
 }
 
 export function analyzeAttachments(attachments: IObject | IObject[] | undefined) {
@@ -448,28 +400,22 @@ export function analyzeAttachments(attachments: IObject | IObject[] | undefined)
 
 	if (Array.isArray(attachments)) {
 		for (const attachment of attachments.filter(isPropertyValue)) {
-			if (isPropertyValue(attachment.identifier)) {
-				addService(services, attachment.identifier);
-			} else {
-				fields.push({
-					name: attachment.name,
-					value: fromHtml(attachment.value),
-				});
-			}
+			fields.push({
+				name: attachment.name,
+				value: fromHtml(attachment.value),
+			});
 		}
 	}
 
 	return { fields, services };
 }
 
-export async function updateFeatured(userId: User['id']) {
+async function updateFeatured(userId: User['id'], resolver: Resolver) {
 	const user = await Users.findOneByOrFail({ id: userId });
 	if (!Users.isRemoteUser(user)) return;
 	if (!user.featured) return;
 
-	logger.info(`Updating the featured: ${user.uri}`);
-
-	const resolver = new Resolver();
+	apLogger.info(`Updating the featured: ${user.uri}`);
 
 	// Resolve to (Ordered)Collection Object
 	const collection = await resolver.resolveCollection(user.featured);

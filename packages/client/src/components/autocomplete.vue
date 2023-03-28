@@ -33,7 +33,7 @@
 </div>
 </template>
 
-<script lang="ts">
+<script lang="ts" setup>
 import { markRaw, ref, onUpdated, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import contains from '@/scripts/contains';
 import { char2filePath } from '@/scripts/twemoji-base';
@@ -54,21 +54,19 @@ type EmojiDef = {
 	isCustomEmoji?: boolean;
 };
 
-const lib = emojilist.filter(x => x.category !== 'flags');
-
-const emjdb: EmojiDef[] = lib.map(x => ({
+const emjdb: EmojiDef[] = emojilist.map(x => ({
 	emoji: x.char,
 	name: x.name,
 	url: char2filePath(x.char),
 }));
 
-for (const x of lib) {
+for (const x of emojilist) {
 	if (x.keywords) {
 		for (const k of x.keywords) {
 			emjdb.push({
 				emoji: x.char,
-				name: k,
-				aliasOf: x.name,
+				name: k.toLowerCase(),
+				aliasOf: x.name.toLowerCase(),
 				url: char2filePath(x.char),
 			});
 		}
@@ -83,20 +81,20 @@ const emojiDefinitions: EmojiDef[] = [];
 
 for (const x of customEmojis) {
 	emojiDefinitions.push({
-		name: x.name,
+		name: x.name.toLowerCase(),
 		emoji: `:${x.name}:`,
 		url: x.url,
-		isCustomEmoji: true
+		isCustomEmoji: true,
 	});
 
 	if (x.aliases) {
 		for (const alias of x.aliases) {
 			emojiDefinitions.push({
-				name: alias,
-				aliasOf: x.name,
+				name: alias.toLowerCase(),
+				aliasOf: x.name.toLowerCase(),
 				emoji: `:${x.name}:`,
 				url: x.url,
-				isCustomEmoji: true
+				isCustomEmoji: true,
 			});
 		}
 	}
@@ -107,15 +105,6 @@ emojiDefinitions.sort((a, b) => a.name.length - b.name.length);
 const emojiDb = markRaw(emojiDefinitions.concat(emjdb));
 //#endregion
 
-export default {
-	emojiDb,
-	emojiDefinitions,
-	emojilist,
-	customEmojis,
-};
-</script>
-
-<script lang="ts" setup>
 const props = defineProps<{
 	type: string;
 	q: string | null;
@@ -193,7 +182,7 @@ function exec() {
 			os.api('users/search-by-username-and-host', {
 				username: props.q,
 				limit: 10,
-				detail: false
+				detail: false,
 			}).then(searchedUsers => {
 				users.value = searchedUsers as any[];
 				fetching.value = false;
@@ -215,7 +204,7 @@ function exec() {
 			} else {
 				os.api('hashtags/search', {
 					query: props.q,
-					limit: 30
+					limit: 30,
 				}).then(searchedHashtags => {
 					hashtags.value = searchedHashtags as any[];
 					fetching.value = false;
@@ -226,7 +215,7 @@ function exec() {
 		}
 	} else if (props.type === 'emoji') {
 		if (!props.q || props.q === '') {
-			// 最近使った絵文字をサジェスト
+			// suggest recently used emoji
 			emojis.value = defaultStore.state.recentlyUsedEmojis.map(emoji => emojiDb.find(dbEmoji => dbEmoji.emoji === emoji)).filter(x => x) as EmojiDef[];
 			return;
 		}
@@ -234,23 +223,35 @@ function exec() {
 		const matched: EmojiDef[] = [];
 		const max = 30;
 
-		emojiDb.some(x => {
-			if (x.name.startsWith(props.q ?? '') && !x.aliasOf && !matched.some(y => y.emoji === x.emoji)) matched.push(x);
-			return matched.length === max;
-		});
+		// match emoji case insensitive
+		const q = props.q.toLowerCase();
+
+		const matchingEmoji = (matcher) => {
+			for (const x of emojiDb) {
+				if (
+					matcher(x)
+					// make sure an emoji isnt shown twice (because of an alias)
+					&& !matched.some(y => y.emoji === x.emoji)
+				) {
+					matched.push(x);
+					// if this brings us to the max allowed, stop checking
+					if (matched.length === max) break;
+				}
+			}
+		}
+
+
+		// at first only check starting and dont allow aliases
+		matchingEmoji(x => x.name.startsWith(q) && !x.aliasOf);
 
 		if (matched.length < max) {
-			emojiDb.some(x => {
-				if (x.name.startsWith(props.q ?? '') && !matched.some(y => y.emoji === x.emoji)) matched.push(x);
-				return matched.length === max;
-			});
+			// there is still space left, now allow aliases too, but still starting with
+			matchingEmoji(x => x.name.startsWith(q));
 		}
 
 		if (matched.length < max) {
-			emojiDb.some(x => {
-				if (x.name.includes(props.q ?? '') && !matched.some(y => y.emoji === x.emoji)) matched.push(x);
-				return matched.length === max;
-			});
+			// there is *still* space left, now just check anywhere in the name or alias
+			matchingEmoji(x => x.name.includes(q));
 		}
 
 		emojis.value = matched;

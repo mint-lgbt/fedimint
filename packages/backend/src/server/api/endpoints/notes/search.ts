@@ -22,9 +22,6 @@ export const meta = {
 			ref: 'Note',
 		},
 	},
-
-	errors: {
-	},
 } as const;
 
 export const paramDef = {
@@ -53,6 +50,8 @@ export default define(meta, paramDef, async (ps, me) => {
 
 		if (ps.userId) {
 			query.andWhere('note.userId = :userId', { userId: ps.userId });
+		} else if (ps.host) {
+			query.andWhere('note.userHost = :host', { host: ps.host });
 		} else if (ps.channelId) {
 			query.andWhere('note.channelId = :channelId', { channelId: ps.channelId });
 		}

@@ -1,8 +1,10 @@
 <template>
 <transition :name="$store.state.animation ? 'popup' : ''" appear @after-leave="$emit('closed')">
-	<div v-if="showing" class="fxxzrfni _popup _shadow" :style="{ zIndex, top: top + 'px', left: left + 'px' }" @mouseover="() => { $emit('mouseover'); }" @mouseleave="() => { $emit('mouseleave'); }">
+	<div v-if="showing" class="fxxzrfni _popup _shadow" :style="{ zIndex, top: top + 'px', left: left + 'px' }" @mouseover="() => { emit('mouseover'); }" @mouseleave="() => { emit('mouseleave'); }">
 		<div v-if="fetched" class="info">
-			<div class="banner" :style="user.bannerUrl ? `background-image: url(${user.bannerUrl})` : ''"></div>
+			<div class="banner" :style="user.bannerUrl ? `background-image: url(${user.bannerUrl})` : ''">
+				<span v-if="$i && $i.id != user.id && user.isFollowed" class="followed">{{ i18n.ts.followsYou }}</span>
+			</div>
 			<MkAvatar class="avatar" :user="user" :disable-preview="true" :show-indicator="true"/>
 			<div class="title">
 				<MkA class="name" :to="userPage(user)"><MkUserName :user="user" :nowrap="false"/></MkA>
@@ -13,13 +15,13 @@
 			</div>
 			<div class="status">
 				<div>
-					<p>{{ $ts.notes }}</p><span>{{ user.notesCount }}</span>
+					<p>{{ i18n.ts.notes }}</p><span>{{ user.notesCount }}</span>
 				</div>
 				<div>
-					<p>{{ $ts.following }}</p><span>{{ user.followingCount }}</span>
+					<p>{{ i18n.ts.following }}</p><span>{{ user.followingCount }}</span>
 				</div>
 				<div>
-					<p>{{ $ts.followers }}</p><span>{{ user.followersCount }}</span>
+					<p>{{ i18n.ts.followers }}</p><span>{{ user.followersCount }}</span>
 				</div>
 			</div>
 			<MkFollowButton v-if="$i && user.id != $i.id" class="koudoku-button" :user="user" mini/>
@@ -31,71 +33,56 @@
 </transition>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
-import * as Acct from 'misskey-js/built/acct';
+<script lang="ts" setup>
+import { onMounted } from 'vue';
+import * as Acct from 'foundkey-js/built/acct';
+import { UserDetailed } from 'foundkey-js/built/entities';
 import MkFollowButton from './follow-button.vue';
 import { userPage } from '@/filters/user';
 import * as os from '@/os';
+import { $i } from '@/account';
+import { i18n } from '@/i18n';
 
-export default defineComponent({
-	components: {
-		MkFollowButton
-	},
+const props = defineProps<{
+	showing: boolean;
+	q: UserDetailed | string;
+	source: HTMLElement;
+}>();
 
-	props: {
-		showing: {
-			type: Boolean,
-			required: true
-		},
-		q: {
-			type: String,
-			required: true
-		},
-		source: {
-			required: true
-		}
-	},
+const emit = defineEmits<{
+	(ev: 'closed'): void;
+	(ev: 'mouseover'): void;
+	(ev: 'mouseleave'): void;
+}>();
 
-	emits: ['closed', 'mouseover', 'mouseleave'],
+let user: UserDetailed = $ref();
+let fetched = $ref(false);
+let top = $ref(0);
+let left = $ref(0);
+let zIndex = $ref(os.claimZIndex('middle'));
 
-	data() {
-		return {
-			user: null,
-			fetched: false,
-			top: 0,
-			left: 0,
-			zIndex: os.claimZIndex('middle'),
-		};
-	},
+onMounted(() => {
+	if (typeof props.q === 'object') {
+		user = props.q;
+		fetched = true;
+	} else {
+		const query = props.q.startsWith('@') ?
+			Acct.parse(props.q.slice(1)) :
+			{ userId: props.q };
 
-	mounted() {
-		if (typeof this.q === 'object') {
-			this.user = this.q;
-			this.fetched = true;
-		} else {
-			const query = this.q.startsWith('@') ?
-				Acct.parse(this.q.substr(1)) :
-				{ userId: this.q };
-
-			os.api('users/show', query).then(user => {
-				if (!this.showing) return;
-				this.user = user;
-				this.fetched = true;
-			});
-		}
-
-		const rect = this.source.getBoundingClientRect();
-		const x = ((rect.left + (this.source.offsetWidth / 2)) - (300 / 2)) + window.pageXOffset;
-		const y = rect.top + this.source.offsetHeight + window.pageYOffset;
-
-		this.top = y;
-		this.left = x;
-	},
-
-	methods: {
-		userPage
+		os.api('users/show', query).then(result => {
+			if (!props.showing) return;
+			user = result;
+			fetched = true;
+		});
 	}
+
+	const rect = props.source.getBoundingClientRect();
+	const x = ((rect.left + (props.source.offsetWidth / 2)) - (300 / 2)) + window.pageXOffset;
+	const y = rect.top + props.source.offsetHeight + window.pageYOffset;
+
+	top = y;
+	left = x;
 });
 </script>
 
@@ -120,6 +107,16 @@ export default defineComponent({
 			background-color: rgba(0, 0, 0, 0.1);
 			background-size: cover;
 			background-position: center;
+			> .followed {
+				position: absolute;
+				top: 12px;
+				left: 12px;
+				padding: 4px 8px;
+				color: #fff;
+				background: rgba(0, 0, 0, 0.7);
+				font-size: 0.7em;
+				border-radius: 6px;
+			}
 		}
 
 		> .avatar {

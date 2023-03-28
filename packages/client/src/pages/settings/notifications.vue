@@ -11,8 +11,7 @@
 
 <script lang="ts" setup>
 import { defineAsyncComponent } from 'vue';
-import { notificationTypes } from 'misskey-js';
-import FormButton from '@/components/ui/button.vue';
+import { notificationTypes } from 'foundkey-js';
 import FormLink from '@/components/form/link.vue';
 import FormSection from '@/components/form/section.vue';
 import * as os from '@/os';
@@ -48,10 +47,6 @@ function configure() {
 		},
 	}, 'closed');
 }
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.notifications,

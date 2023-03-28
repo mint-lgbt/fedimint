@@ -1,28 +1,24 @@
 import { CacheableRemoteUser } from '@/models/entities/user.js';
-import { apLogger } from '../../logger.js';
-import Resolver from '../../resolver.js';
-import { IUndo, isFollow, isBlock, isLike, isAnnounce, getApType, isAccept } from '../../type.js';
+import { apLogger } from '@/remote/activitypub/logger.js';
+import { Resolver } from '@/remote/activitypub/resolver.js';
+import { IUndo, isFollow, isBlock, isLike, isAnnounce, getApType, isAccept } from '@/remote/activitypub/type.js';
 import unfollow from './follow.js';
 import unblock from './block.js';
 import undoLike from './like.js';
 import undoAccept from './accept.js';
 import { undoAnnounce } from './announce.js';
 
-const logger = apLogger;
-
-export default async (actor: CacheableRemoteUser, activity: IUndo): Promise<string> => {
+export default async (actor: CacheableRemoteUser, activity: IUndo, resolver: Resolver): Promise<string> => {
 	if ('actor' in activity && actor.uri !== activity.actor) {
 		throw new Error('invalid actor');
 	}
 
 	const uri = activity.id || activity;
 
-	logger.info(`Undo: ${uri}`);
-
-	const resolver = new Resolver();
+	apLogger.info(`Undo: ${uri}`);
 
 	const object = await resolver.resolve(activity.object).catch(e => {
-		logger.error(`Resolution failed: ${e}`);
+		apLogger.error(`Resolution failed: ${e}`);
 		throw e;
 	});
 

@@ -1,15 +1,16 @@
 import { generateKeyPair } from 'node:crypto';
-import bcrypt from 'bcryptjs';
 import { IsNull } from 'typeorm';
 import { User } from '@/models/entities/user.js';
 import { Users, UsedUsernames } from '@/models/index.js';
 import { UserProfile } from '@/models/entities/user-profile.js';
 import { genId } from '@/misc/gen-id.js';
 import { toPunyNullable } from '@/misc/convert-host.js';
+import { hashPassword } from '@/misc/password.js';
 import { UserKeypair } from '@/models/entities/user-keypair.js';
 import { usersChart } from '@/services/chart/index.js';
 import { UsedUsername } from '@/models/entities/used-username.js';
 import { db } from '@/db/postgre.js';
+import { ApiError } from '@/server/api/error.js';
 import generateUserToken from './generate-native-user-token.js';
 
 export async function signup(opts: {
@@ -23,18 +24,16 @@ export async function signup(opts: {
 
 	// Validate username
 	if (!Users.validateLocalUsername(username)) {
-		throw new Error('INVALID_USERNAME');
+		throw new ApiError('INVALID_USERNAME');
 	}
 
 	if (password != null && passwordHash == null) {
 		// Validate password
 		if (!Users.validatePassword(password)) {
-			throw new Error('INVALID_PASSWORD');
+			throw new ApiError('INVALID_PASSWORD');
 		}
 
-		// Generate hash of password
-		const salt = await bcrypt.genSalt(8);
-		hash = await bcrypt.hash(password, salt);
+		hash = await hashPassword(password);
 	}
 
 	// Generate secret
@@ -42,12 +41,12 @@ export async function signup(opts: {
 
 	// Check username duplication
 	if (await Users.findOneBy({ usernameLower: username.toLowerCase(), host: IsNull() })) {
-		throw new Error('DUPLICATED_USERNAME');
+		throw new ApiError('USED_USERNAME');
 	}
 
 	// Check deleted username duplication
 	if (await UsedUsernames.findOneBy({ username: username.toLowerCase() })) {
-		throw new Error('USED_USERNAME');
+		throw new ApiError('USED_USERNAME');
 	}
 
 	const keyPair = await new Promise<string[]>((res, rej) =>
@@ -64,19 +63,19 @@ export async function signup(opts: {
 				passphrase: undefined,
 			},
 		} as any, (err, publicKey, privateKey) =>
-			err ? rej(err) : res([publicKey, privateKey])
+			err ? rej(err) : res([publicKey, privateKey]),
 		));
 
 	let account!: User;
 
 	// Start transaction
 	await db.transaction(async transactionalEntityManager => {
-		const exist = await transactionalEntityManager.findOneBy(User, {
+		const exist = await transactionalEntityManager.countBy(User, {
 			usernameLower: username.toLowerCase(),
 			host: IsNull(),
 		});
 
-		if (exist) throw new Error(' the username is already used');
+		if (exist) throw new ApiError('USED_USERNAME');
 
 		account = await transactionalEntityManager.save(new User({
 			id: genId(),

@@ -41,7 +41,7 @@ export class AccessToken {
 	@Column(id())
 	public userId: User['id'];
 
-	@ManyToOne(type => User, {
+	@ManyToOne(() => User, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()
@@ -53,7 +53,7 @@ export class AccessToken {
 	})
 	public appId: App['id'] | null;
 
-	@ManyToOne(type => App, {
+	@ManyToOne(() => App, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()
@@ -79,7 +79,6 @@ export class AccessToken {
 
 	@Column('varchar', {
 		length: 64, array: true,
-		default: '{}',
 	})
 	public permission: string[];
 

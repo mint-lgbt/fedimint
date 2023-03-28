@@ -1,5 +1,6 @@
 <template>
-<div class="rghtznwe"
+<div
+	class="rghtznwe"
 	:class="{ draghover }"
 	draggable="true"
 	:title="title"
@@ -28,13 +29,13 @@
 
 <script lang="ts" setup>
 import { computed, defineAsyncComponent, ref } from 'vue';
-import * as Misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
 import { defaultStore } from '@/store';
 
 const props = withDefaults(defineProps<{
-	folder: Misskey.entities.DriveFolder;
+	folder: foundkey.entities.DriveFolder;
 	isSelected?: boolean;
 	selectMode?: boolean;
 }>(), {
@@ -43,11 +44,11 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-	(ev: 'chosen', v: Misskey.entities.DriveFolder): void;
-	(ev: 'move', v: Misskey.entities.DriveFolder): void;
-	(ev: 'upload', file: File, folder: Misskey.entities.DriveFolder);
-	(ev: 'removeFile', v: Misskey.entities.DriveFile['id']): void;
-	(ev: 'removeFolder', v: Misskey.entities.DriveFolder['id']): void;
+	(ev: 'chosen', v: foundkey.entities.DriveFolder): void;
+	(ev: 'move', v: foundkey.entities.DriveFolder): void;
+	(ev: 'upload', file: File, folder: foundkey.entities.DriveFolder);
+	(ev: 'removeFile', v: foundkey.entities.DriveFile['id']): void;
+	(ev: 'removeFolder', v: foundkey.entities.DriveFolder['id']): void;
 	(ev: 'dragstart'): void;
 	(ev: 'dragend'): void;
 }>();
@@ -89,7 +90,22 @@ function onDragover(ev: DragEvent) {
 	const isDriveFolder = ev.dataTransfer.types[0] === _DATA_TRANSFER_DRIVE_FOLDER_;
 
 	if (isFile || isDriveFile || isDriveFolder) {
-		ev.dataTransfer.dropEffect = ev.dataTransfer.effectAllowed === 'all' ? 'copy' : 'move';
+		switch (ev.dataTransfer.effectAllowed) {
+			case 'all':
+			case 'uninitialized':
+			case 'copy':
+			case 'copyLink':
+			case 'copyMove':
+				ev.dataTransfer.dropEffect = 'copy';
+				break;
+			case 'linkMove':
+			case 'move':
+				ev.dataTransfer.dropEffect = 'move';
+				break;
+			default:
+				ev.dataTransfer.dropEffect = 'none';
+				break;
+		}
 	} else {
 		ev.dataTransfer.dropEffect = 'none';
 	}
@@ -123,7 +139,7 @@ function onDrop(ev: DragEvent) {
 		emit('removeFile', file.id);
 		os.api('drive/files/update', {
 			fileId: file.id,
-			folderId: props.folder.id
+			folderId: props.folder.id,
 		});
 	}
 	//#endregion
@@ -139,7 +155,7 @@ function onDrop(ev: DragEvent) {
 		emit('removeFolder', folder.id);
 		os.api('drive/folders/update', {
 			folderId: folder.id,
-			parentId: props.folder.id
+			parentId: props.folder.id,
 		}).then(() => {
 			// noop
 		}).catch(err => {
@@ -147,13 +163,13 @@ function onDrop(ev: DragEvent) {
 				case 'detected-circular-definition':
 					os.alert({
 						title: i18n.ts.unableToProcess,
-						text: i18n.ts.circularReferenceFolder
+						text: i18n.ts.circularReferenceFolder,
 					});
 					break;
 				default:
 					os.alert({
 						type: 'error',
-						text: i18n.ts.somethingHappened
+						text: i18n.ts.somethingHappened,
 					});
 			}
 		});
@@ -178,27 +194,23 @@ function onDragend() {
 	emit('dragend');
 }
 
-function go() {
-	emit('move', props.folder.id);
-}
-
 function rename() {
 	os.inputText({
 		title: i18n.ts.renameFolder,
 		placeholder: i18n.ts.inputNewFolderName,
-		default: props.folder.name
+		default: props.folder.name,
 	}).then(({ canceled, result: name }) => {
 		if (canceled) return;
 		os.api('drive/folders/update', {
 			folderId: props.folder.id,
-			name: name
+			name,
 		});
 	});
 }
 
 function deleteFolder() {
 	os.api('drive/folders/delete', {
-		folderId: props.folder.id
+		folderId: props.folder.id,
 	}).then(() => {
 		if (defaultStore.state.uploadFolder === props.folder.id) {
 			defaultStore.set('uploadFolder', null);
@@ -209,20 +221,16 @@ function deleteFolder() {
 				os.alert({
 					type: 'error',
 					title: i18n.ts.unableToDelete,
-					text: i18n.ts.hasChildFilesOrFolders
+					text: i18n.ts.hasChildFilesOrFolders,
 				});
 				break;
 			default:
 				os.alert({
 					type: 'error',
-					text: i18n.ts.unableToDelete
+					text: i18n.ts.unableToDelete,
 				});
 		}
 	});
-}
-
-function setAsUploadFolder() {
-	defaultStore.set('uploadFolder', props.folder.id);
 }
 
 function onContextmenu(ev: MouseEvent) {
@@ -231,10 +239,10 @@ function onContextmenu(ev: MouseEvent) {
 		icon: 'fas fa-window-restore',
 		action: () => {
 			os.popup(defineAsyncComponent(() => import('./drive-window.vue')), {
-				initialFolder: props.folder
+				initialFolder: props.folder,
 			}, {
 			}, 'closed');
-		}
+		},
 	}, null, {
 		text: i18n.ts.rename,
 		icon: 'fas fa-i-cursor',

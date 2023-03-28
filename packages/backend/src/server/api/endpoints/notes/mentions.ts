@@ -1,5 +1,6 @@
 import { Brackets } from 'typeorm';
-import read from '@/services/note/read.js';
+import { noteVisibilities } from 'foundkey-js';
+import { readNote } from '@/services/note/read.js';
 import { Notes, Followings } from '@/models/index.js';
 import define from '../../define.js';
 import { generateVisibilityQuery } from '../../common/generate-visibility-query.js';
@@ -31,7 +32,10 @@ export const paramDef = {
 		limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
 		sinceId: { type: 'string', format: 'misskey:id' },
 		untilId: { type: 'string', format: 'misskey:id' },
-		visibility: { type: 'string' },
+		visibility: {
+			type: 'string',
+			enum: noteVisibilities,
+		},
 	},
 	required: [],
 } as const;
@@ -75,7 +79,7 @@ export default define(meta, paramDef, async (ps, user) => {
 
 	const mentions = await query.take(ps.limit).getMany();
 
-	read(user.id, mentions);
+	readNote(user.id, mentions);
 
 	return await Notes.packMany(mentions, user);
 });

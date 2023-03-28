@@ -3,6 +3,11 @@ import { id } from '../id.js';
 import { User } from './user.js';
 import { Clip } from './clip.js';
 
+export enum TranslationService {
+	DeepL = 'deepl',
+	LibreTranslate = 'libretranslate',
+}
+
 @Entity()
 export class Meta {
 	@PrimaryColumn({
@@ -78,7 +83,7 @@ export class Meta {
 	public blockedHosts: string[];
 
 	@Column('varchar', {
-		length: 512, array: true, default: '{/featured,/channels,/explore,/pages,/about-misskey}',
+		length: 512, array: true, default: '{/featured,/channels,/explore,/pages,/about-foundkey}',
 	})
 	public pinnedPages: string[];
 
@@ -129,7 +134,7 @@ export class Meta {
 	})
 	public proxyAccountId: User['id'] | null;
 
-	@ManyToOne(type => User, {
+	@ManyToOne(() => User, {
 		onDelete: 'SET NULL',
 	})
 	@JoinColumn()
@@ -231,73 +236,21 @@ export class Meta {
 	})
 	public smtpPass: string | null;
 
-	@Column('boolean', {
-		default: false,
+	@Column('varchar', {
+		length: 128,
 	})
-	public enableServiceWorker: boolean;
+	public swPublicKey: string;
 
 	@Column('varchar', {
 		length: 128,
+	})
+	public swPrivateKey: string;
+
+	@Column('enum', {
+		enum: TranslationService,
 		nullable: true,
 	})
-	public swPublicKey: string | null;
-
-	@Column('varchar', {
-		length: 128,
-		nullable: true,
-	})
-	public swPrivateKey: string | null;
-
-	@Column('boolean', {
-		default: false,
-	})
-	public enableTwitterIntegration: boolean;
-
-	@Column('varchar', {
-		length: 128,
-		nullable: true,
-	})
-	public twitterConsumerKey: string | null;
-
-	@Column('varchar', {
-		length: 128,
-		nullable: true,
-	})
-	public twitterConsumerSecret: string | null;
-
-	@Column('boolean', {
-		default: false,
-	})
-	public enableGithubIntegration: boolean;
-
-	@Column('varchar', {
-		length: 128,
-		nullable: true,
-	})
-	public githubClientId: string | null;
-
-	@Column('varchar', {
-		length: 128,
-		nullable: true,
-	})
-	public githubClientSecret: string | null;
-
-	@Column('boolean', {
-		default: false,
-	})
-	public enableDiscordIntegration: boolean;
-
-	@Column('varchar', {
-		length: 128,
-		nullable: true,
-	})
-	public discordClientId: string | null;
-
-	@Column('varchar', {
-		length: 128,
-		nullable: true,
-	})
-	public discordClientSecret: string | null;
+	public translationService: TranslationService | null;
 
 	@Column('varchar', {
 		length: 128,
@@ -305,10 +258,17 @@ export class Meta {
 	})
 	public deeplAuthKey: string | null;
 
-	@Column('boolean', {
-		default: false,
+	@Column('varchar', {
+		length: 128,
+		nullable: true,
 	})
-	public deeplIsPro: boolean;
+	public libreTranslateAuthKey: string | null;
+
+	@Column('varchar', {
+		length: 2048,
+		nullable: true,
+	})
+	public libreTranslateEndpoint: string | null;
 
 	@Column('varchar', {
 		length: 512,

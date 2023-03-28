@@ -5,7 +5,7 @@ import define from '../../define.js';
 export const meta = {
 	tags: ['federation'],
 
-	requireCredential: false,
+	requireCredential: true,
 
 	res: {
 		type: 'array',
@@ -36,7 +36,7 @@ export const paramDef = {
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, paramDef, async (ps, me) => {
+export default define(meta, paramDef, async (ps) => {
 	const query = Instances.createQueryBuilder('instance');
 
 	switch (ps.sort) {
@@ -69,17 +69,17 @@ export default define(meta, paramDef, async (ps, me) => {
 
 	if (typeof ps.notResponding === 'boolean') {
 		if (ps.notResponding) {
-			query.andWhere('instance.isNotResponding = TRUE');
+			query.andWhere('instance.isNotResponding');
 		} else {
-			query.andWhere('instance.isNotResponding = FALSE');
+			query.andWhere('NOT instance.isNotResponding');
 		}
 	}
 
 	if (typeof ps.suspended === 'boolean') {
 		if (ps.suspended) {
-			query.andWhere('instance.isSuspended = TRUE');
+			query.andWhere('instance.isSuspended');
 		} else {
-			query.andWhere('instance.isSuspended = FALSE');
+			query.andWhere('NOT instance.isSuspended');
 		}
 	}
 

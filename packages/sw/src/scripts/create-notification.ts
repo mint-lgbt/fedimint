@@ -1,7 +1,6 @@
 /*
  * Notification manager for SW
  */
-declare var self: ServiceWorkerGlobalScope;
 
 import { swLang } from '@/scripts/lang';
 import { cli } from '@/scripts/operations';
@@ -12,7 +11,7 @@ import { getAccountFromId } from '@/scripts/get-account-from-id';
 import { char2fileName } from '@/scripts/twemoji-base';
 import * as url from '@/scripts/url';
 
-const iconUrl = (name: string) => `/static-assets/notification-badges/${name}.png`;
+const iconUrl = (name: string): string => `/static-assets/notification-badges/${name}.png`;
 
 export async function createNotification<K extends keyof pushNotificationDataMap>(data: pushNotificationDataMap[K]) {
 	const n = await composeNotification(data);
@@ -30,14 +29,6 @@ async function composeNotification<K extends keyof pushNotificationDataMap>(data
 	const i18n = await swLang.i18n as I18n<any>;
 	const { t } = i18n;
 	switch (data.type) {
-		/*
-		case 'driveFileCreated': // TODO (Server Side)
-			return [t('_notification.fileUploaded'), {
-				body: body.name,
-				icon: body.url,
-				data
-			}];
-		*/
 		case 'notification':
 			switch (data.body.type) {
 				case 'follow':
@@ -112,15 +103,15 @@ async function composeNotification<K extends keyof pushNotificationDataMap>(data
 								title: t('_notification._actions.reply')
 							},
 							...((data.body.note.visibility === 'public' || data.body.note.visibility === 'home') ? [
-							{
-								action: 'renote',
-								title: t('_notification._actions.renote')
-							}
-							] : [])
+								{
+									action: 'renote',
+									title: t('_notification._actions.renote'),
+								},
+							] : []),
 						],
 					}];
 
-				case 'reaction':
+				case 'reaction': {
 					let reaction = data.body.reaction;
 					let badge: string | undefined;
 
@@ -167,7 +158,7 @@ async function composeNotification<K extends keyof pushNotificationDataMap>(data
 							}
 						],
 					}];
-
+				}
 				case 'pollVote':
 					return [t('_notification.youGotPoll', { name: getUserName(data.body.user) }), {
 						body: data.body.note.text || '',

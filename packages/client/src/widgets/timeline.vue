@@ -8,7 +8,7 @@
 			<i v-else-if="widgetProps.src === 'global'" class="fas fa-globe"></i>
 			<i v-else-if="widgetProps.src === 'list'" class="fas fa-list-ul"></i>
 			<i v-else-if="widgetProps.src === 'antenna'" class="fas fa-satellite"></i>
-			<span style="margin-left: 8px;">{{ widgetProps.src === 'list' ? widgetProps.list.name : widgetProps.src === 'antenna' ? widgetProps.antenna.name : $t('_timelines.' + widgetProps.src) }}</span>
+			<span style="margin-left: 8px;">{{ widgetProps.src === 'list' ? widgetProps.list.name : widgetProps.src === 'antenna' ? widgetProps.antenna.name : i18n.t('_timelines.' + widgetProps.src) }}</span>
 			<i :class="menuOpened ? 'fas fa-angle-up' : 'fas fa-angle-down'" style="margin-left: 8px;"></i>
 		</button>
 	</template>
@@ -20,13 +20,12 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { ref } from 'vue';
+import { useWidgetPropsManager, Widget, WidgetComponentExpose } from './widget';
 import { GetFormResultType } from '@/scripts/form';
-import { useWidgetPropsManager, Widget, WidgetComponentEmits, WidgetComponentExpose, WidgetComponentProps } from './widget';
 import * as os from '@/os';
 import MkContainer from '@/components/ui/container.vue';
 import XTimeline from '@/components/timeline.vue';
-import { $i } from '@/account';
 import { i18n } from '@/i18n';
 
 const name = 'timeline';
@@ -63,7 +62,7 @@ type WidgetProps = GetFormResultType<typeof widgetPropsDef>;
 //const props = defineProps<WidgetComponentProps<WidgetProps>>();
 //const emit = defineEmits<WidgetComponentEmits<WidgetProps>>();
 const props = defineProps<{ widget?: Widget<WidgetProps>; }>();
-const emit = defineEmits<{ (ev: 'updateProps', props: WidgetProps); }>();
+const emit = defineEmits<{ (ev: 'updateProps', widgetProps: WidgetProps); }>();
 
 const { widgetProps, configure, save } = useWidgetPropsManager(name,
 	widgetPropsDef,
@@ -73,16 +72,16 @@ const { widgetProps, configure, save } = useWidgetPropsManager(name,
 
 const menuOpened = ref(false);
 
-const setSrc = (src) => {
+const setSrc = (src): void => {
 	widgetProps.src = src;
 	save();
 };
 
-const choose = async (ev) => {
+const choose = async (ev): Promise<void> => {
 	menuOpened.value = true;
 	const [antennas, lists] = await Promise.all([
 		os.api('antennas/list'),
-		os.api('users/lists/list')
+		os.api('users/lists/list'),
 	]);
 	const antennaItems = antennas.map(antenna => ({
 		text: antenna.name,
@@ -90,7 +89,7 @@ const choose = async (ev) => {
 		action: () => {
 			widgetProps.antenna = antenna;
 			setSrc('antenna');
-		}
+		},
 	}));
 	const listItems = lists.map(list => ({
 		text: list.name,
@@ -98,24 +97,24 @@ const choose = async (ev) => {
 		action: () => {
 			widgetProps.list = list;
 			setSrc('list');
-		}
+		},
 	}));
 	os.popupMenu([{
 		text: i18n.ts._timelines.home,
 		icon: 'fas fa-home',
-		action: () => { setSrc('home'); }
+		action: () => { setSrc('home'); },
 	}, {
 		text: i18n.ts._timelines.local,
 		icon: 'fas fa-comments',
-		action: () => { setSrc('local'); }
+		action: () => { setSrc('local'); },
 	}, {
 		text: i18n.ts._timelines.social,
 		icon: 'fas fa-share-alt',
-		action: () => { setSrc('social'); }
+		action: () => { setSrc('social'); },
 	}, {
 		text: i18n.ts._timelines.global,
 		icon: 'fas fa-globe',
-		action: () => { setSrc('global'); }
+		action: () => { setSrc('global'); },
 	}, antennaItems.length > 0 ? null : undefined, ...antennaItems, listItems.length > 0 ? null : undefined, ...listItems], ev.currentTarget ?? ev.target).then(() => {
 		menuOpened.value = false;
 	});

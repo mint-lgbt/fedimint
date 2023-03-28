@@ -1,5 +1,5 @@
 import { Directive } from 'vue';
-import { makeHotkey } from '../scripts/hotkey';
+import { makeHotkey } from '@/scripts/hotkey';
 
 export default {
 	mounted(el, binding) {
@@ -20,5 +20,5 @@ export default {
 		} else {
 			el.removeEventListener('keydown', el._keyHandler);
 		}
-	}
+	},
 } as Directive;

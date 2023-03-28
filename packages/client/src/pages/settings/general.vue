@@ -6,7 +6,7 @@
 		<template #caption>
 			<I18n :src="i18n.ts.i18nInfo" tag="span">
 				<template #link>
-					<MkLink url="https://crowdin.com/project/misskey">Crowdin</MkLink>
+					<MkLink url="https://translate.akkoma.dev/projects/foundkey/foundkey/">Weblate</MkLink>
 				</template>
 			</I18n>
 		</template>
@@ -27,7 +27,6 @@
 		<FormSwitch v-model="imageNewTab" class="_formBlock">{{ i18n.ts.openImageInNewTab }}</FormSwitch>
 		<FormSwitch v-model="enableInfiniteScroll" class="_formBlock">{{ i18n.ts.enableInfiniteScroll }}</FormSwitch>
 		<FormSwitch v-model="useReactionPickerForContextMenu" class="_formBlock">{{ i18n.ts.useReactionPickerForContextMenu }}</FormSwitch>
-		<FormSwitch v-model="disablePagesScript" class="_formBlock">{{ i18n.ts.disablePagesScript }}</FormSwitch>
 
 		<FormSelect v-model="serverDisconnectedBehavior" class="_formBlock">
 			<template #label>{{ i18n.ts.whenServerDisconnected }}</template>
@@ -35,6 +34,13 @@
 			<option value="dialog">{{ i18n.ts._serverDisconnectedBehavior.dialog }}</option>
 			<option value="quiet">{{ i18n.ts._serverDisconnectedBehavior.quiet }}</option>
 		</FormSelect>
+
+		<FormRange v-model="maxCustomEmojiPicker" :min="1" :max="25" :step="1" :text-converter="emojiCountConverter" class="_formBlock">
+			<template #label>{{ i18n.ts.maxCustomEmojiPicker }}</template>
+		</FormRange>
+		<FormRange v-model="maxUnicodeEmojiPicker" :min="1" :max="25" :step="1" :text-converter="emojiCountConverter" class="_formBlock">
+			<template #label>{{ i18n.ts.maxUnicodeEmojiPicker }}</template>
+		</FormRange>
 	</FormSection>
 
 	<FormSection>
@@ -61,10 +67,6 @@
 			<option value="large"><span style="font-size: 18px;">Aa</span></option>
 			<option value="veryLarge"><span style="font-size: 20px;">Aa</span></option>
 		</FormRadios>
-	</FormSection>
-
-	<FormSection>
-		<FormSwitch v-model="aiChanMode">{{ i18n.ts.aiChanMode }}</FormSwitch>
 	</FormSection>
 
 	<FormSelect v-model="instanceTicker" class="_formBlock">
@@ -112,7 +114,7 @@ const lang = ref(localStorage.getItem('lang'));
 const fontSize = ref(localStorage.getItem('fontSize'));
 const useSystemFont = ref(localStorage.getItem('useSystemFont') != null);
 
-async function reloadAsk() {
+async function reloadAsk(): Promise<void> {
 	const { canceled } = await os.confirm({
 		type: 'info',
 		text: i18n.ts.reloadToApplySetting,
@@ -135,14 +137,33 @@ const disableShowingAnimatedImages = computed(defaultStore.makeGetterSetter('dis
 const loadRawImages = computed(defaultStore.makeGetterSetter('loadRawImages'));
 const imageNewTab = computed(defaultStore.makeGetterSetter('imageNewTab'));
 const nsfw = computed(defaultStore.makeGetterSetter('nsfw'));
-const disablePagesScript = computed(defaultStore.makeGetterSetter('disablePagesScript'));
 const showFixedPostForm = computed(defaultStore.makeGetterSetter('showFixedPostForm'));
 const numberOfPageCache = computed(defaultStore.makeGetterSetter('numberOfPageCache'));
 const instanceTicker = computed(defaultStore.makeGetterSetter('instanceTicker'));
 const enableInfiniteScroll = computed(defaultStore.makeGetterSetter('enableInfiniteScroll'));
 const useReactionPickerForContextMenu = computed(defaultStore.makeGetterSetter('useReactionPickerForContextMenu'));
 const squareAvatars = computed(defaultStore.makeGetterSetter('squareAvatars'));
-const aiChanMode = computed(defaultStore.makeGetterSetter('aiChanMode'));
+
+/*
+For these two, the sliders go to 25, but 25 should be mapped to "unlimited".
+"Unlimited" is stored internally as 0 so the modulo is necessary.
+*/
+let maxCustomEmojiPicker = $ref(defaultStore.state.maxCustomEmojiPicker || 25);
+watch($$(maxCustomEmojiPicker), () => {
+	defaultStore.set('maxCustomEmojiPicker', maxCustomEmojiPicker % 25);
+});
+let maxUnicodeEmojiPicker = $ref(defaultStore.state.maxUnicodeEmojiPicker || 25);
+watch($$(maxUnicodeEmojiPicker), () => {
+	defaultStore.set('maxUnicodeEmojiPicker', maxUnicodeEmojiPicker % 25);
+});
+
+function emojiCountConverter(n: number): string {
+	if (n === 25) {
+		return i18n.ts.unlimited;
+	} else {
+		return n.toString();
+	}
+}
 
 watch(lang, () => {
 	localStorage.setItem('lang', lang.value as string);
@@ -171,17 +192,12 @@ watch([
 	useSystemFont,
 	enableInfiniteScroll,
 	squareAvatars,
-	aiChanMode,
 	showGapBetweenNotesInTimeline,
 	instanceTicker,
 	overridedDeviceKind,
 ], async () => {
 	await reloadAsk();
 });
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.general,

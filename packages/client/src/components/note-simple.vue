@@ -17,14 +17,13 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import XNoteHeader from './note-header.vue';
 import MkNoteSubNoteContent from './sub-note-content.vue';
 import XCwButton from './cw-button.vue';
 
-const props = defineProps<{
-	note: misskey.entities.Note;
+defineProps<{
+	note: foundkey.entities.Note;
 	pinned?: boolean;
 }>();
 

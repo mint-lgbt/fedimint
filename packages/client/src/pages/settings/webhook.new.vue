@@ -26,20 +26,22 @@
 	</FormSection>
 
 	<div class="_formBlock" style="display: flex; gap: var(--margin); flex-wrap: wrap;">
-		<FormButton primary inline @click="create"><i class="fas fa-check"></i> {{ i18n.ts.create }}</FormButton>
+		<MkButton primary inline @click="create"><i class="fas fa-check"></i> {{ i18n.ts.create }}</MkButton>
 	</div>
 </div>
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import FormInput from '@/components/form/input.vue';
 import FormSection from '@/components/form/section.vue';
 import FormSwitch from '@/components/form/switch.vue';
-import FormButton from '@/components/ui/button.vue';
+import MkButton from '@/components/ui/button.vue';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
 import { definePageMetadata } from '@/scripts/page-metadata';
+import { useRouter } from '@/router';
+
+const router = useRouter();
 
 let name = $ref('');
 let url = $ref('');
@@ -63,17 +65,15 @@ async function create(): Promise<void> {
 	if (event_reaction) events.push('reaction');
 	if (event_mention) events.push('mention');
 
-	os.apiWithDialog('i/webhooks/create', {
+	await os.apiWithDialog('i/webhooks/create', {
 		name,
 		url,
 		secret,
 		on: events,
 	});
+
+	router.push('/settings/webhook');
 }
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: 'Create new webhook',

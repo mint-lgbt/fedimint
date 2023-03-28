@@ -15,7 +15,7 @@ import { getActiveWebhooks } from '@/misc/webhook-cache.js';
 import { registerOrFetchInstanceDoc } from '../register-or-fetch-instance-doc.js';
 import Logger from '../logger.js';
 import { createNotification } from '../create-notification.js';
-import createFollowRequest from './requests/create.js';
+import { createFollowRequest } from './requests/create.js';
 
 const logger = new Logger('following/create');
 
@@ -46,12 +46,12 @@ export async function insertFollowingDoc(followee: { id: User['id']; host: User[
 		}
 	});
 
-	const req = await FollowRequests.findOneBy({
+	const requested = await FollowRequests.countBy({
 		followeeId: followee.id,
 		followerId: follower.id,
 	});
 
-	if (req) {
+	if (requested) {
 		await FollowRequests.delete({
 			followeeId: followee.id,
 			followerId: follower.id,
@@ -166,8 +166,8 @@ export default async function(_follower: { id: User['id'] }, _followee: { id: Us
 	if (followee.isLocked || (followeeProfile.carefulBot && follower.isBot) || (Users.isLocalUser(follower) && Users.isRemoteUser(followee))) {
 		let autoAccept = false;
 
-		// 鍵アカウントであっても、既にフォローされていた場合はスルー
-		const following = await Followings.findOneBy({
+		// Even for locked accounts, if they are already following, go through immediately.
+		const following = await Followings.countBy({
 			followerId: follower.id,
 			followeeId: followee.id,
 		});
@@ -175,9 +175,9 @@ export default async function(_follower: { id: User['id'] }, _followee: { id: Us
 			autoAccept = true;
 		}
 
-		// フォローしているユーザーは自動承認オプション
+		// handle automatic approval for users that follow you, if enabled
 		if (!autoAccept && (Users.isLocalUser(followee) && followeeProfile.autoAcceptFollowed)) {
-			const followed = await Followings.findOneBy({
+			const followed = await Followings.countBy({
 				followerId: followee.id,
 				followeeId: follower.id,
 			});

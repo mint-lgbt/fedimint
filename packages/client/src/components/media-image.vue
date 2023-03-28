@@ -3,8 +3,8 @@
 	<ImgWithBlurhash class="bg" :hash="image.blurhash" :title="image.comment" :alt="image.comment"/>
 	<div class="text">
 		<div>
-			<b><i class="fas fa-exclamation-triangle"></i> {{ $ts.sensitive }}</b>
-			<span>{{ $ts.clickToShow }}</span>
+			<b><i class="fas fa-exclamation-triangle"></i> {{ i18n.ts.sensitive }}</b>
+			<span>{{ i18n.ts.clickToShow }}</span>
 		</div>
 	</div>
 </div>
@@ -16,19 +16,20 @@
 		<ImgWithBlurhash :hash="image.blurhash" :src="url" :alt="image.comment" :title="image.comment" :cover="false"/>
 		<div v-if="image.type === 'image/gif'" class="gif">GIF</div>
 	</a>
-	<button v-tooltip="$ts.hide" class="_button hide" @click="hide = true"><i class="fas fa-eye-slash"></i></button>
+	<button v-tooltip="i18n.ts.hide" class="_button hide" @click="hide = true"><i class="fas fa-eye-slash"></i></button>
 </div>
 </template>
 
 <script lang="ts" setup>
 import { watch } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import { getStaticImageUrl } from '@/scripts/get-static-image-url';
 import ImgWithBlurhash from '@/components/img-with-blurhash.vue';
 import { defaultStore } from '@/store';
+import { i18n } from '@/i18n';
 
 const props = defineProps<{
-	image: misskey.entities.DriveFile;
+	image: foundkey.entities.DriveFile;
 	raw?: boolean;
 }>();
 
@@ -37,8 +38,8 @@ let hide = $ref(true);
 const url = (props.raw || defaultStore.state.loadRawImages)
 	? props.image.url
 	: defaultStore.state.disableShowingAnimatedImages
-			? getStaticImageUrl(props.image.thumbnailUrl)
-			: props.image.thumbnailUrl;
+		? getStaticImageUrl(props.image.thumbnailUrl)
+		: props.image.thumbnailUrl;
 
 // Plugin:register_note_view_interruptor を使って書き換えられる可能性があるためwatchする
 watch(() => props.image, () => {

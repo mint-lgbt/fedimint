@@ -1,4 +1,3 @@
-import rndstr from 'rndstr';
 import { publishBroadcastStream } from '@/services/stream.js';
 import { db } from '@/db/postgre.js';
 import { Emojis, DriveFiles } from '@/models/index.js';
@@ -13,13 +12,7 @@ export const meta = {
 	requireCredential: true,
 	requireModerator: true,
 
-	errors: {
-		noSuchFile: {
-			message: 'No such file.',
-			code: 'MO_SUCH_FILE',
-			id: 'fc46b5a4-6b92-4c33-ac66-b806659bb5cf',
-		},
-	},
+	errors: ['NO_SUCH_FILE'],
 } as const;
 
 export const paramDef = {
@@ -34,9 +27,9 @@ export const paramDef = {
 export default define(meta, paramDef, async (ps, me) => {
 	const file = await DriveFiles.findOneBy({ id: ps.fileId });
 
-	if (file == null) throw new ApiError(meta.errors.noSuchFile);
+	if (file == null) throw new ApiError('NO_SUCH_FILE');
 
-	const name = file.name.split('.')[0].match(/^[a-z0-9_]+$/) ? file.name.split('.')[0] : `_${rndstr('a-z0-9', 8)}_`;
+	const name = file.name.split('.')[0].match(/^[a-z0-9_]+$/) ? file.name.split('.')[0] : `_${genId()}_`;
 
 	const emoji = await Emojis.insert({
 		id: genId(),

@@ -26,9 +26,32 @@
 
 			<FormSection v-if="iAmModerator">
 				<template #label>Moderation</template>
-				<FormSwitch v-model="suspended" class="_formBlock" @update:modelValue="toggleSuspend">{{ i18n.ts.stopActivityDelivery }}</FormSwitch>
-				<FormSwitch v-model="isBlocked" class="_formBlock" @update:modelValue="toggleBlock">{{ i18n.ts.blockThisInstance }}</FormSwitch>
+				<FormSwitch
+					:model-value="suspended || isBlocked"
+					@update:model-value="newValue => {suspended = newValue; toggleSuspend() }"
+					:disabled="isBlocked"
+					class="_formBlock"
+				>
+					{{ i18n.ts.stopActivityDelivery }}
+					<template #caption>
+						{{ i18n.ts.stopActivityDeliveryDescription }}
+					</template>
+				</FormSwitch>
+				<FormSwitch
+					v-model="isBlocked"
+					@update:modelValue="toggleBlock"
+					class="_formBlock"
+				>
+					{{ i18n.ts.blockThisInstance }}
+					<template #caption>
+						{{ i18n.ts.blockThisInstanceDescription }}
+					</template>
+				</FormSwitch>
+
 				<MkButton @click="refreshMetadata"><i class="fas fa-refresh"></i> Refresh metadata</MkButton>
+
+				<MkInfo style="margin-top: 1em;" warn>{{ i18n.t('removeAllFollowingDescription', { host: instance.host }) }}</MkInfo>
+				<MkButton danger @click="removeAllFollowing"><i class="fas fa-users-slash"></i> {{ i18n.ts.removeAllFollowing }}</MkButton>
 			</FormSection>
 
 			<FormSection>
@@ -73,7 +96,7 @@
 		<div v-else-if="tab === 'chart'" class="_formRoot">
 			<div class="cmhjzshl">
 				<div class="selects">
-					<MkSelect v-model="chartSrc" style="margin: 0 10px 0 0; flex: 1;">
+					<FormSelect v-model="chartSrc" style="margin: 0 10px 0 0; flex: 1;">
 						<option value="instance-requests">{{ i18n.ts._instanceCharts.requests }}</option>
 						<option value="instance-users">{{ i18n.ts._instanceCharts.users }}</option>
 						<option value="instance-users-total">{{ i18n.ts._instanceCharts.usersTotal }}</option>
@@ -85,7 +108,7 @@
 						<option value="instance-drive-usage-total">{{ i18n.ts._instanceCharts.cacheSizeTotal }}</option>
 						<option value="instance-drive-files">{{ i18n.ts._instanceCharts.files }}</option>
 						<option value="instance-drive-files-total">{{ i18n.ts._instanceCharts.filesTotal }}</option>
-					</MkSelect>
+					</FormSelect>
 				</div>
 				<div class="charts">
 					<div class="label">{{ i18n.t('recentNHours', { n: 90 }) }}</div>
@@ -111,8 +134,7 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import MkChart from '@/components/chart.vue';
 import MkObjectView from '@/components/object-view.vue';
 import FormLink from '@/components/form/link.vue';
@@ -120,7 +142,7 @@ import MkLink from '@/components/link.vue';
 import MkButton from '@/components/ui/button.vue';
 import FormSection from '@/components/form/section.vue';
 import MkKeyValue from '@/components/key-value.vue';
-import MkSelect from '@/components/form/select.vue';
+import FormSelect from '@/components/form/select.vue';
 import FormSwitch from '@/components/form/switch.vue';
 import * as os from '@/os';
 import number from '@/filters/number';
@@ -130,6 +152,7 @@ import { definePageMetadata } from '@/scripts/page-metadata';
 import { i18n } from '@/i18n';
 import MkUserCardMini from '@/components/user-card-mini.vue';
 import MkPagination from '@/components/ui/pagination.vue';
+import MkInfo from '@/components/ui/info.vue';
 
 const props = defineProps<{
 	host: string;
@@ -137,8 +160,8 @@ const props = defineProps<{
 
 let tab = $ref('overview');
 let chartSrc = $ref('instance-requests');
-let meta = $ref<misskey.entities.DetailedInstanceMetadata | null>(null);
-let instance = $ref<misskey.entities.Instance | null>(null);
+let meta = $ref<foundkey.entities.DetailedInstanceMetadata | null>(null);
+let instance = $ref<foundkey.entities.Instance | null>(null);
 let suspended = $ref(false);
 let isBlocked = $ref(false);
 
@@ -153,7 +176,7 @@ const usersPagination = {
 	offsetMode: true,
 };
 
-async function fetch() {
+async function fetch(): Promise<void> {
 	instance = await os.api('federation/show-instance', {
 		host: props.host,
 	});
@@ -161,26 +184,32 @@ async function fetch() {
 	isBlocked = instance.isBlocked;
 }
 
-async function toggleBlock(ev) {
+async function toggleBlock(): Promise<void> {
 	if (meta == null) return;
 	await os.api('admin/update-meta', {
 		blockedHosts: isBlocked ? meta.blockedHosts.concat([instance.host]) : meta.blockedHosts.filter(x => x !== instance.host),
 	});
 }
 
-async function toggleSuspend(v) {
+async function toggleSuspend(): Promise<void> {
 	await os.api('admin/federation/update-instance', {
 		host: instance.host,
 		isSuspended: suspended,
 	});
 }
 
-function refreshMetadata() {
+function refreshMetadata(): void {
 	os.api('admin/federation/refresh-remote-instance-metadata', {
 		host: instance.host,
 	});
 	os.alert({
 		text: 'Refresh requested',
+	});
+}
+
+async function removeAllFollowing() {
+	await os.apiWithDialog('admin/federation/remove-all-following', {
+		host: instance.host,
 	});
 }
 

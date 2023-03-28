@@ -4,9 +4,9 @@ import renderNote from '@/remote/activitypub/renderer/note.js';
 import { Users, Notes } from '@/models/index.js';
 import { Note } from '@/models/entities/note.js';
 import { deliverToFollowers } from '@/remote/activitypub/deliver-manager.js';
-import { deliverToRelays } from '../../relay.js';
+import { deliverToRelays } from '@/services/relay.js';
 
-export async function deliverQuestionUpdate(noteId: Note['id']) {
+export async function deliverQuestionUpdate(noteId: Note['id']): Promise<void> {
 	const note = await Notes.findOneBy({ id: noteId });
 	if (note == null) throw new Error('note not found');
 

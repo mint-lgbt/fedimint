@@ -1,6 +1,6 @@
 <template>
 <MkStickyContainer>
-	<template #header><MkPageHeader :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader/></template>
 	<MkSpacer :content-max="900" :margin-min="20" :margin-max="32">
 		<div ref="el" class="vvcocwet" :class="{ wide: !narrow }">
 			<div class="body">
@@ -89,11 +89,6 @@ const menuDef = computed(() => [{
 		text: i18n.ts.email,
 		to: '/settings/email',
 		active: props.initialPage === 'email',
-	}, {
-		icon: 'fas fa-share-alt',
-		text: i18n.ts.integration,
-		to: '/settings/integration',
-		active: props.initialPage === 'integration',
 	}, {
 		icon: 'fas fa-lock',
 		text: i18n.ts.security,
@@ -200,9 +195,7 @@ const component = computed(() => {
 		case 'mute-block': return defineAsyncComponent(() => import('./mute-block.vue'));
 		case 'word-mute': return defineAsyncComponent(() => import('./word-mute.vue'));
 		case 'instance-mute': return defineAsyncComponent(() => import('./instance-mute.vue'));
-		case 'integration': return defineAsyncComponent(() => import('./integration.vue'));
 		case 'security': return defineAsyncComponent(() => import('./security.vue'));
-		case '2fa': return defineAsyncComponent(() => import('./2fa.vue'));
 		case 'api': return defineAsyncComponent(() => import('./api.vue'));
 		case 'webhook': return defineAsyncComponent(() => import('./webhook.vue'));
 		case 'webhook/new': return defineAsyncComponent(() => import('./webhook.new.vue'));
@@ -273,10 +266,6 @@ provideMetadataReceiver((info) => {
 		childInfo.value = info;
 	}
 });
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata(INFO);
 </script>

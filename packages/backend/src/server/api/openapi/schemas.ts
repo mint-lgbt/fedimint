@@ -4,7 +4,8 @@ export function convertSchemaToOpenApiSchema(schema: Schema) {
 	const res: any = schema;
 
 	if (schema.type === 'object' && schema.properties) {
-		res.required = Object.entries(schema.properties).filter(([k, v]) => !v.optional).map(([k]) => k);
+		res.required = Object.entries(schema.properties)
+			.flatMap(([k, v]) => v.optional ? [] : [k]);
 
 		for (const k of Object.keys(schema.properties)) {
 			res.properties[k] = convertSchemaToOpenApiSchema(schema.properties[k]);
@@ -36,25 +37,27 @@ export const schemas = {
 				properties: {
 					code: {
 						type: 'string',
-						description: 'An error code. Unique within the endpoint.',
+						description: 'A machine and human readable error code.',
+					},
+					endpoint: {
+						type: 'string',
+						description: 'Name of the API endpoint the error happened in.',
 					},
 					message: {
 						type: 'string',
-						description: 'An error message.',
+						description: 'A human readable error description in English.',
 					},
-					id: {
-						type: 'string',
-						format: 'uuid',
-						description: 'An error ID. This ID is static.',
+					info: {
+						description: 'Potentially more information, primarily intended for developers.',
 					},
 				},
-				required: ['code', 'id', 'message'],
+				required: ['code', 'endpoint', 'message'],
 			},
 		},
 		required: ['error'],
 	},
 
 	...Object.fromEntries(
-		Object.entries(refs).map(([key, schema]) => [key, convertSchemaToOpenApiSchema(schema)])
+		Object.entries(refs).map(([key, schema]) => [key, convertSchemaToOpenApiSchema(schema)]),
 	),
 };

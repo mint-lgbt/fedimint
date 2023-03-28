@@ -1,7 +1,7 @@
-import rndstr from 'rndstr';
-import bcrypt from 'bcryptjs';
 import { publishMainStream } from '@/services/stream.js';
 import config from '@/config/index.js';
+import { comparePassword } from '@/misc/password.js';
+import { secureRndstr } from '@/misc/secure-rndstr.js';
 import { Users, UserProfiles } from '@/models/index.js';
 import { sendEmail } from '@/services/send-email.js';
 import { validateEmailForAccount } from '@/services/validate-email-for-account.js';
@@ -19,19 +19,9 @@ export const meta = {
 		max: 3,
 	},
 
-	errors: {
-		incorrectPassword: {
-			message: 'Incorrect password.',
-			code: 'INCORRECT_PASSWORD',
-			id: 'e54c1d7e-e7d6-4103-86b6-0a95069b4ad3',
-		},
-
-		unavailable: {
-			message: 'Unavailable email address.',
-			code: 'UNAVAILABLE',
-			id: 'a2defefb-f220-8849-0af6-17f816099323',
-		},
-	},
+	// FIXME: refactor to remove both of these errors?
+	// the password should not be passed as it is not compatible with using OAuth
+	errors: ['ACCESS_DENIED', 'INTERNAL_ERROR'],
 } as const;
 
 export const paramDef = {
@@ -47,18 +37,13 @@ export const paramDef = {
 export default define(meta, paramDef, async (ps, user) => {
 	const profile = await UserProfiles.findOneByOrFail({ userId: user.id });
 
-	// Compare password
-	const same = await bcrypt.compare(ps.password, profile.password!);
-
-	if (!same) {
-		throw new ApiError(meta.errors.incorrectPassword);
+	if (!(await comparePassword(ps.password, profile.password!))) {
+		throw new ApiError('ACCESS_DENIED');
 	}
 
 	if (ps.email != null) {
 		const available = await validateEmailForAccount(ps.email);
-		if (!available) {
-			throw new ApiError(meta.errors.unavailable);
-		}
+		if (!available) throw new ApiError('INTERNAL_ERROR');
 	}
 
 	await UserProfiles.update(user.id, {
@@ -76,7 +61,7 @@ export default define(meta, paramDef, async (ps, user) => {
 	publishMainStream(user.id, 'meUpdated', iObj);
 
 	if (ps.email != null) {
-		const code = rndstr('a-z0-9', 16);
+		const code = secureRndstr(16);
 
 		await UserProfiles.update(user.id, {
 			emailVerifyCode: code,

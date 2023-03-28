@@ -1,7 +1,7 @@
 // NIRAX --- A lightweight router
 
 import { EventEmitter } from 'eventemitter3';
-import { Ref, Component, ref, shallowRef, ShallowRef } from 'vue';
+import { Component, shallowRef, ShallowRef } from 'vue';
 import { pleaseLogin } from '@/scripts/please-login';
 import { safeURIDecode } from '@/scripts/safe-uri-decode';
 
@@ -25,9 +25,7 @@ type ParsedPath = (string | {
 function parsePath(path: string): ParsedPath {
 	const res = [] as ParsedPath;
 
-	path = path.substring(1);
-
-	for (const part of path.split('/')) {
+	for (const part of path.substring(1).split('/')) {
 		if (part.includes(':')) {
 			const prefix = part.substring(0, part.indexOf(':'));
 			const placeholder = part.substring(part.indexOf(':') + 1);
@@ -81,9 +79,10 @@ export class Router extends EventEmitter<{
 		this.navigate(currentPath, null, true);
 	}
 
-	public resolve(path: string): { route: RouteDef; props: Map<string, string>; } | null {
+	public resolve(_path: string): { route: RouteDef; props: Map<string, string>; } | null {
 		let queryString: string | null = null;
 		let hash: string | null = null;
+		let path: string = _path;
 		if (path[0] === '/') path = path.substring(1);
 		if (path.includes('#')) {
 			hash = path.substring(path.indexOf('#') + 1);
@@ -164,9 +163,8 @@ export class Router extends EventEmitter<{
 		return null;
 	}
 
-	private navigate(path: string, key: string | null | undefined, initial = false) {
+	private navigate(path: string, key: string | null | undefined, initial = false): void {
 		const beforePath = this.currentPath;
-		const beforeRoute = this.currentRoute.value;
 		this.currentPath = path;
 
 		const res = this.resolve(this.currentPath);
@@ -180,11 +178,11 @@ export class Router extends EventEmitter<{
 		}
 
 		const isSamePath = beforePath === path;
-		if (isSamePath && key == null) key = this.currentKey;
+
 		this.currentComponent = res.route.component;
 		this.currentProps = res.props;
 		this.currentRoute.value = res.route;
-		this.currentKey = this.currentRoute.value.globalCacheKey ?? key ?? Date.now().toString();
+		this.currentKey = this.currentRoute.value.globalCacheKey ?? key ?? (isSamePath ? this.currentKey : null) ?? Date.now().toString();
 
 		if (!initial) {
 			this.emit('change', {
@@ -197,23 +195,23 @@ export class Router extends EventEmitter<{
 		}
 	}
 
-	public getCurrentComponent() {
+	public getCurrentComponent(): Component | null {
 		return this.currentComponent;
 	}
 
-	public getCurrentProps() {
+	public getCurrentProps(): Map<string, string> | null {
 		return this.currentProps;
 	}
 
-	public getCurrentPath() {
+	public getCurrentPath(): string {
 		return this.currentPath;
 	}
 
-	public getCurrentKey() {
+	public getCurrentKey(): string {
 		return this.currentKey;
 	}
 
-	public push(path: string) {
+	public push(path: string): void {
 		const beforePath = this.currentPath;
 		if (path === beforePath) {
 			this.emit('same');
@@ -233,7 +231,7 @@ export class Router extends EventEmitter<{
 		});
 	}
 
-	public change(path: string, key?: string | null) {
+	public change(path: string, key?: string | null): void {
 		this.navigate(path, key);
 	}
 }

@@ -20,12 +20,12 @@
 import { onMounted, onUnmounted } from 'vue';
 import MkModal from './modal.vue';
 
-const props = withDefaults(defineProps<{
-	withOkButton: boolean;
-	okButtonDisabled: boolean;
-	width: number;
-	height: number | null;
-	scroll: boolean;
+withDefaults(defineProps<{
+	withOkButton?: boolean;
+	okButtonDisabled?: boolean;
+	width?: number;
+	height?: number | null;
+	scroll?: boolean;
 }>(), {
 	withOkButton: false,
 	okButtonDisabled: false,
@@ -63,7 +63,7 @@ const onKeydown = (evt) => {
 	}
 };
 
-const ro = new ResizeObserver((entries, observer) => {
+const ro = new ResizeObserver(() => {
 	bodyWidth = rootEl.offsetWidth;
 	bodyHeight = rootEl.offsetHeight - headerEl.offsetHeight;
 });
@@ -90,6 +90,7 @@ defineExpose({
 	flex-direction: column;
 	contain: content;
 	border-radius: var(--radius);
+	background: var(--panel);
 
 	--root-margin: 24px;
 
@@ -102,9 +103,6 @@ defineExpose({
 		$height-narrow: 42px;
 		display: flex;
 		flex-shrink: 0;
-		background: var(--windowHeader);
-		-webkit-backdrop-filter: var(--blur, blur(15px));
-		backdrop-filter: var(--blur, blur(15px));
 
 		> button {
 			height: $height;
@@ -139,7 +137,6 @@ defineExpose({
 
 	> .body {
 		overflow: auto;
-		background: var(--panel);
 	}
 }
 </style>

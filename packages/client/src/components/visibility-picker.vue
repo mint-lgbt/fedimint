@@ -1,28 +1,28 @@
 <template>
 <MkModal ref="modal" :z-priority="'high'" :src="src" @click="modal.close()" @closed="emit('closed')">
 	<div class="gqyayizv _popup">
-		<button key="public" class="_button" :class="{ active: v === 'public' }" data-index="1" @click="choose('public')">
+		<button key="public" :disabled="disabled['public']" class="_button" :class="{ active: v === 'public' }" data-index="1" @click="choose('public')">
 			<div><i class="fas fa-globe"></i></div>
 			<div>
 				<span>{{ i18n.ts._visibility.public }}</span>
 				<span>{{ i18n.ts._visibility.publicDescription }}</span>
 			</div>
 		</button>
-		<button key="home" class="_button" :class="{ active: v === 'home' }" data-index="2" @click="choose('home')">
+		<button key="home" :disabled="disabled['home']" class="_button" :class="{ active: v === 'home' }" data-index="2" @click="choose('home')">
 			<div><i class="fas fa-home"></i></div>
 			<div>
 				<span>{{ i18n.ts._visibility.home }}</span>
 				<span>{{ i18n.ts._visibility.homeDescription }}</span>
 			</div>
 		</button>
-		<button key="followers" class="_button" :class="{ active: v === 'followers' }" data-index="3" @click="choose('followers')">
+		<button key="followers" :disabled="disabled['followers']" class="_button" :class="{ active: v === 'followers' }" data-index="3" @click="choose('followers')">
 			<div><i class="fas fa-unlock"></i></div>
 			<div>
 				<span>{{ i18n.ts._visibility.followers }}</span>
 				<span>{{ i18n.ts._visibility.followersDescription }}</span>
 			</div>
 		</button>
-		<button key="specified" :disabled="localOnly" class="_button" :class="{ active: v === 'specified' }" data-index="4" @click="choose('specified')">
+		<button key="specified" :disabled="localOnly || disabled['specified']" class="_button" :class="{ active: v === 'specified' }" data-index="4" @click="choose('specified')">
 			<div><i class="fas fa-envelope"></i></div>
 			<div>
 				<span>{{ i18n.ts._visibility.specified }}</span>
@@ -44,21 +44,23 @@
 
 <script lang="ts" setup>
 import { nextTick, watch } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import MkModal from '@/components/ui/modal.vue';
 import { i18n } from '@/i18n';
 
 const modal = $ref<InstanceType<typeof MkModal>>();
 
 const props = withDefaults(defineProps<{
-	currentVisibility: typeof misskey.noteVisibilities[number];
+	parentVisibility: foundkey.NoteVisibility;
+	parentLocalOnly: boolean;
+	currentVisibility: foundkey.NoteVisibility;
 	currentLocalOnly: boolean;
 	src?: HTMLElement;
 }>(), {
 });
 
 const emit = defineEmits<{
-	(ev: 'changeVisibility', v: typeof misskey.noteVisibilities[number]): void;
+	(ev: 'changeVisibility', v: typeof foundkey.noteVisibilities[number]): void;
 	(ev: 'changeLocalOnly', v: boolean): void;
 	(ev: 'closed'): void;
 }>();
@@ -66,11 +68,16 @@ const emit = defineEmits<{
 let v = $ref(props.currentVisibility);
 let localOnly = $ref(props.currentLocalOnly);
 
+const disabled = foundkey.noteVisibilities.reduce((acc, visibility) => {
+	acc[visibility] = (visibility !== foundkey.minVisibility(visibility, props.parentVisibility));
+	return acc;
+}, {});
+
 watch($$(localOnly), () => {
 	emit('changeLocalOnly', localOnly);
 });
 
-function choose(visibility: typeof misskey.noteVisibilities[number]): void {
+function choose(visibility: typeof foundkey.NoteVisibility): void {
 	v = visibility;
 	emit('changeVisibility', visibility);
 	nextTick(() => {

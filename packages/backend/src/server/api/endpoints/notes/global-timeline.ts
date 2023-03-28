@@ -8,6 +8,7 @@ import { generateMutedUserQuery } from '../../common/generate-muted-user-query.j
 import { generateRepliesQuery } from '../../common/generate-replies-query.js';
 import { generateMutedNoteQuery } from '../../common/generate-muted-note-query.js';
 import { generateBlockedUserQuery } from '../../common/generate-block-query.js';
+import { generateMutedRenotesQuery } from '../../common/generated-muted-renote-query.js';
 
 export const meta = {
 	tags: ['notes'],
@@ -22,13 +23,7 @@ export const meta = {
 		},
 	},
 
-	errors: {
-		gtlDisabled: {
-			message: 'Global timeline has been disabled.',
-			code: 'GTL_DISABLED',
-			id: '0332fc13-6ab2-4427-ae80-a9fadffd1a6b',
-		},
-	},
+	errors: ['TIMELINE_DISABLED'],
 } as const;
 
 export const paramDef = {
@@ -53,7 +48,7 @@ export default define(meta, paramDef, async (ps, user) => {
 	const m = await fetchMeta();
 	if (m.disableGlobalTimeline) {
 		if (user == null || (!user.isAdmin && !user.isModerator)) {
-			throw new ApiError(meta.errors.gtlDisabled);
+			throw new ApiError('TIMELINE_DISABLED');
 		}
 	}
 
@@ -79,6 +74,7 @@ export default define(meta, paramDef, async (ps, user) => {
 		generateMutedUserQuery(query, user);
 		generateMutedNoteQuery(query, user);
 		generateBlockedUserQuery(query, user);
+		generateMutedRenotesQuery(query, user);
 	}
 
 	if (ps.withFiles) {

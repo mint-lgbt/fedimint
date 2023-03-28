@@ -1,4 +1,5 @@
 import { Signins, UserProfiles, Users } from '@/models/index.js';
+import { ApiError } from '@/server/api/error.js';
 import define from '../../define.js';
 
 export const meta = {
@@ -11,6 +12,8 @@ export const meta = {
 		type: 'object',
 		nullable: false, optional: false,
 	},
+
+	errors: ['NO_SUCH_USER', 'IS_ADMIN'],
 } as const;
 
 export const paramDef = {
@@ -25,16 +28,16 @@ export const paramDef = {
 export default define(meta, paramDef, async (ps, me) => {
 	const [user, profile] = await Promise.all([
 		Users.findOneBy({ id: ps.userId }),
-		UserProfiles.findOneBy({ userId: ps.userId })
+		UserProfiles.findOneBy({ userId: ps.userId }),
 	]);
 
 	if (user == null || profile == null) {
-		throw new Error('user not found');
+		throw new ApiError('NO_SUCH_USER');
 	}
 
 	const _me = await Users.findOneByOrFail({ id: me.id });
 	if ((_me.isModerator && !_me.isAdmin) && user.isAdmin) {
-		throw new Error('cannot show info of admin');
+		throw new ApiError('IS_ADMIN');
 	}
 
 	if (!_me.isAdmin) {
@@ -44,11 +47,6 @@ export default define(meta, paramDef, async (ps, me) => {
 			isSuspended: user.isSuspended,
 		};
 	}
-
-	const maskedKeys = ['accessToken', 'accessTokenSecret', 'refreshToken'];
-	Object.keys(profile.integrations).forEach(integration => {
-		maskedKeys.forEach(key => profile.integrations[integration][key] = '<MASKED>');
-	});
 
 	const signins = await Signins.findBy({ userId: user.id });
 
@@ -61,7 +59,6 @@ export default define(meta, paramDef, async (ps, me) => {
 		carefulBot: profile.carefulBot,
 		injectFeaturedNote: profile.injectFeaturedNote,
 		receiveAnnouncementEmail: profile.receiveAnnouncementEmail,
-		integrations: profile.integrations,
 		mutedWords: profile.mutedWords,
 		mutedInstances: profile.mutedInstances,
 		mutingNotificationTypes: profile.mutingNotificationTypes,

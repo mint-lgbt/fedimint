@@ -1,7 +1,6 @@
 import { computed, ref, reactive } from 'vue';
-import { $i } from './account';
+import { $i } from '@/account';
 import { mainRouter } from '@/router';
-import { search } from '@/scripts/search';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
 import { ui } from '@/config';
@@ -49,7 +48,7 @@ export const menuDef = reactive({
 	search: {
 		title: 'search',
 		icon: 'fas fa-search',
-		action: () => search(),
+		to: '/search',
 	},
 	lists: {
 		title: 'lists',
@@ -112,14 +111,14 @@ export const menuDef = reactive({
 		icon: 'fas fa-at',
 		show: computed(() => $i != null),
 		indicated: computed(() => $i != null && $i.hasUnreadMentions),
-		to: '/my/mentions',
+		to: '/my/notifications#mentions',
 	},
 	messages: {
 		title: 'directNotes',
 		icon: 'fas fa-envelope',
 		show: computed(() => $i != null),
 		indicated: computed(() => $i != null && $i.hasUnreadSpecifiedNotes),
-		to: '/my/messages',
+		to: '/my/notifications#directNotes',
 	},
 	favorites: {
 		title: 'favorites',
@@ -131,11 +130,6 @@ export const menuDef = reactive({
 		title: 'pages',
 		icon: 'fas fa-file-alt',
 		to: '/pages',
-	},
-	gallery: {
-		title: 'gallery',
-		icon: 'fas fa-icons',
-		to: '/gallery',
 	},
 	clips: {
 		title: 'clip',
@@ -151,17 +145,12 @@ export const menuDef = reactive({
 	federation: {
 		title: 'federation',
 		icon: 'fas fa-globe',
-		to: '/federation',
+		to: '/about#federation',
 	},
 	emojis: {
 		title: 'emojis',
 		icon: 'fas fa-laugh',
-		to: '/emojis',
-	},
-	scratchpad: {
-		title: 'scratchpad',
-		icon: 'fas fa-terminal',
-		to: '/scratchpad',
+		to: '/about#emojis',
 	},
 	ui: {
 		title: 'switchUi',
@@ -194,7 +183,7 @@ export const menuDef = reactive({
 	reload: {
 		title: 'reload',
 		icon: 'fas fa-refresh',
-		action: (ev) => {
+		action: () => {
 			location.reload();
 		},
 	},

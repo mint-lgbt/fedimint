@@ -1,24 +1,24 @@
-import { IsNull, Not } from 'typeorm';
+import { ArrayOverlap, IsNull, Not } from 'typeorm';
 import { publishNoteStream } from '@/services/stream.js';
 import { renderLike } from '@/remote/activitypub/renderer/like.js';
-import DeliverManager from '@/remote/activitypub/deliver-manager.js';
+import { DeliverManager } from '@/remote/activitypub/deliver-manager.js';
 import { renderActivity } from '@/remote/activitypub/renderer/index.js';
 import { toDbReaction, decodeReaction } from '@/misc/reaction-lib.js';
 import { User, IRemoteUser } from '@/models/entities/user.js';
 import { Note } from '@/models/entities/note.js';
-import { NoteReactions, Users, NoteWatchings, Notes, Emojis, Blockings } from '@/models/index.js';
+import { NoteReactions, Users, NoteWatchings, Notes, Emojis, Blockings, NoteThreadMutings } from '@/models/index.js';
 import { perUserReactionsChart } from '@/services/chart/index.js';
 import { genId } from '@/misc/gen-id.js';
 import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import { NoteReaction } from '@/models/entities/note-reaction.js';
 import { IdentifiableError } from '@/misc/identifiable-error.js';
-import { createNotification } from '../../create-notification.js';
-import deleteReaction from './delete.js';
+import { createNotification } from '@/services/create-notification.js';
+import { deleteReaction } from './delete.js';
 
-export default async (user: { id: User['id']; host: User['host']; }, note: Note, reaction?: string) => {
+export async function createReaction(user: { id: User['id']; host: User['host']; }, note: Note, reaction?: string): Promise<void> {
 	// Check blocking
 	if (note.userId !== user.id) {
-		const block = await Blockings.findOneBy({
+		const block = await Blockings.countBy({
 			blockerId: note.userId,
 			blockeeId: user.id,
 		});
@@ -33,14 +33,14 @@ export default async (user: { id: User['id']; host: User['host']; }, note: Note,
 	}
 
 	// TODO: cache
-	reaction = await toDbReaction(reaction, user.host);
+	const dbReaction = await toDbReaction(reaction, user.host);
 
 	const record: NoteReaction = {
 		id: genId(),
 		createdAt: new Date(),
 		noteId: note.id,
 		userId: user.id,
-		reaction,
+		reaction: dbReaction,
 	};
 
 	// Create reaction
@@ -53,7 +53,7 @@ export default async (user: { id: User['id']; host: User['host']; }, note: Note,
 				userId: user.id,
 			});
 
-			if (exists.reaction !== reaction) {
+			if (exists.reaction !== dbReaction) {
 				// 別のリアクションがすでにされていたら置き換える
 				await deleteReaction(user, note);
 				await NoteReactions.insert(record);
@@ -67,7 +67,7 @@ export default async (user: { id: User['id']; host: User['host']; }, note: Note,
 	}
 
 	// Increment reactions count
-	const sql = `jsonb_set("reactions", '{${reaction}}', (COALESCE("reactions"->>'${reaction}', '0')::int + 1)::text::jsonb)`;
+	const sql = `jsonb_set("reactions", '{${dbReaction}}', (COALESCE("reactions"->>'${dbReaction}', '0')::int + 1)::text::jsonb)`;
 	await Notes.createQueryBuilder().update()
 		.set({
 			reactions: () => sql,
@@ -79,7 +79,7 @@ export default async (user: { id: User['id']; host: User['host']; }, note: Note,
 	perUserReactionsChart.update(user, note);
 
 	// カスタム絵文字リアクションだったら絵文字情報も送る
-	const decodedReaction = decodeReaction(reaction);
+	const decodedReaction = decodeReaction(dbReaction);
 
 	const emoji = await Emojis.findOne({
 		where: {
@@ -98,12 +98,18 @@ export default async (user: { id: User['id']; host: User['host']; }, note: Note,
 		userId: user.id,
 	});
 
+	// check if this thread is muted
+	const threadMuted = await NoteThreadMutings.countBy({
+		userId: note.userId,
+		threadId: note.threadId || note.id,
+		mutingNotificationTypes: ArrayOverlap(['reaction']),
+	});
 	// リアクションされたユーザーがローカルユーザーなら通知を作成
-	if (note.userHost === null) {
+	if (note.userHost === null && !threadMuted) {
 		createNotification(note.userId, 'reaction', {
 			notifierId: user.id,
 			noteId: note.id,
-			reaction,
+			reaction: dbReaction,
 		});
 	}
 
@@ -116,7 +122,7 @@ export default async (user: { id: User['id']; host: User['host']; }, note: Note,
 			createNotification(watcher.userId, 'reaction', {
 				notifierId: user.id,
 				noteId: note.id,
-				reaction,
+				reaction: dbReaction,
 			});
 		}
 	});
@@ -142,4 +148,4 @@ export default async (user: { id: User['id']; host: User['host']; }, note: Note,
 		dm.execute();
 	}
 	//#endregion
-};
+}

@@ -29,7 +29,7 @@ function getClassOrder(width: number, queue: Value): ClassOrder {
 		remove: [
 			...(queue.max ? queue.max.filter(v => width > v).map(getMaxClass) : []),
 			...(queue.min ? queue.min.filter(v => width < v).map(getMinClass) : []),
-		]
+		],
 	};
 }
 
@@ -77,8 +77,8 @@ function calc(el: Element) {
 }
 
 export default {
-	mounted(src, binding, vn) {
-		const resize = new ResizeObserver((entries, observer) => {
+	mounted(src, binding) {
+		const resize = new ResizeObserver(() => {
 			calc(src);
 		});
 
@@ -92,16 +92,16 @@ export default {
 		resize.observe(src);
 	},
 
-	updated(src, binding, vn) {
+	updated(src, binding) {
 		mountings.set(src, Object.assign({}, mountings.get(src), { value: binding.value }));
 		calc(src);
 	},
 
-	unmounted(src, binding, vn) {
+	unmounted(src) {
 		const info = mountings.get(src);
 		if (!info) return;
 		info.resize.disconnect();
 		if (info.intersection) info.intersection.disconnect();
 		mountings.delete(src);
-	}
+	},
 } as Directive<Element, Value>;

@@ -10,7 +10,7 @@
 			<MkPagination v-if="pagination" ref="pagingComponent" :key="userAcct || groupId" :pagination="pagination">
 				<template #empty>
 					<div class="_fullinfo">
-						<img src="https://xn--931a.moe/assets/info.jpg" class="_ghost"/>
+						<img :src="instance.images.info" class="_ghost"/>
 						<div>{{ i18n.ts.noMessagesYet }}</div>
 					</div>
 				</template>
@@ -51,8 +51,8 @@
 
 <script lang="ts" setup>
 import { computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue';
-import * as Misskey from 'misskey-js';
-import * as Acct from 'misskey-js/built/acct';
+import * as foundkey from 'foundkey-js';
+import * as Acct from 'foundkey-js/built/acct';
 import XMessage from './messaging-room.message.vue';
 import XForm from './messaging-room.form.vue';
 import XList from '@/components/date-separated-list.vue';
@@ -65,6 +65,7 @@ import { i18n } from '@/i18n';
 import { $i } from '@/account';
 import { defaultStore } from '@/store';
 import { definePageMetadata } from '@/scripts/page-metadata';
+import { instance } from '@/instance';
 
 const props = defineProps<{
 	userAcct?: string;
@@ -76,10 +77,10 @@ let formEl = $ref<InstanceType<typeof XForm>>();
 let pagingComponent = $ref<InstanceType<typeof MkPagination>>();
 
 let fetching = $ref(true);
-let user: Misskey.entities.UserDetailed | null = $ref(null);
-let group: Misskey.entities.UserGroup | null = $ref(null);
-let typers: Misskey.entities.User[] = $ref([]);
-let connection: Misskey.ChannelConnection<Misskey.Channels['messaging']> | null = $ref(null);
+let user: foundkey.entities.UserDetailed | null = $ref(null);
+let group: foundkey.entities.UserGroup | null = $ref(null);
+let typers: foundkey.entities.User[] = $ref([]);
+let connection: foundkey.ChannelConnection<foundkey.Channels['messaging']> | null = $ref(null);
 let showIndicator = $ref(false);
 const {
 	animation,
@@ -154,7 +155,22 @@ function onDragover(ev: DragEvent) {
 	const isDriveFile = ev.dataTransfer.types[0] === _DATA_TRANSFER_DRIVE_FILE_;
 
 	if (isFile || isDriveFile) {
-		ev.dataTransfer.dropEffect = ev.dataTransfer.effectAllowed === 'all' ? 'copy' : 'move';
+		switch (ev.dataTransfer.effectAllowed) {
+			case 'all':
+			case 'uninitialized':
+			case 'copy':
+			case 'copyLink':
+			case 'copyMove':
+				ev.dataTransfer.dropEffect = 'copy';
+				break;
+			case 'linkMove':
+			case 'move':
+				ev.dataTransfer.dropEffect = 'move';
+				break;
+			default:
+				ev.dataTransfer.dropEffect = 'none';
+				break;
+		}
 	} else {
 		ev.dataTransfer.dropEffect = 'none';
 	}
@@ -209,8 +225,8 @@ function onMessage(message) {
 
 function onRead(x) {
 	if (user) {
-		if (!Array.isArray(x)) x = [x];
-		for (const id of x) {
+		// ensure x is an array or turn it into one
+		for (const id of [x].flat()) {
 			if (pagingComponent.items.some(y => y.id === id)) {
 				const exist = pagingComponent.items.map(y => y.id).indexOf(id);
 				pagingComponent.items[exist] = {

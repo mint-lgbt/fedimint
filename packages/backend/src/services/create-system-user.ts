@@ -1,21 +1,17 @@
-import bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 import { IsNull } from 'typeorm';
 import { genRsaKeyPair } from '@/misc/gen-key-pair.js';
+import { hashPassword } from '@/misc/password.js';
 import { User } from '@/models/entities/user.js';
 import { UserProfile } from '@/models/entities/user-profile.js';
 import { genId } from '@/misc/gen-id.js';
 import { UserKeypair } from '@/models/entities/user-keypair.js';
 import { UsedUsername } from '@/models/entities/used-username.js';
 import { db } from '@/db/postgre.js';
-import generateNativeUserToken from '../server/api/common/generate-native-user-token.js';
+import generateNativeUserToken from '@/server/api/common/generate-native-user-token.js';
 
-export async function createSystemUser(username: string) {
-	const password = uuid();
-
-	// Generate hash of password
-	const salt = await bcrypt.genSalt(8);
-	const hash = await bcrypt.hash(password, salt);
+export async function createSystemUser(username: string): Promise<User> {
+	const password = await hashPassword(uuid());
 
 	// Generate secret
 	const secret = generateNativeUserToken();
@@ -26,7 +22,7 @@ export async function createSystemUser(username: string) {
 
 	// Start transaction
 	await db.transaction(async transactionalEntityManager => {
-		const exist = await transactionalEntityManager.findOneBy(User, {
+		const exist = await transactionalEntityManager.countBy(User, {
 			usernameLower: username.toLowerCase(),
 			host: IsNull(),
 		});
@@ -55,7 +51,7 @@ export async function createSystemUser(username: string) {
 		await transactionalEntityManager.insert(UserProfile, {
 			userId: account.id,
 			autoAcceptFollowed: false,
-			password: hash,
+			password,
 		});
 
 		await transactionalEntityManager.insert(UsedUsername, {

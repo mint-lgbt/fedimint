@@ -1,5 +1,6 @@
 <template>
-<XWindow ref="window"
+<XWindow
+	ref="window"
 	:initial-width="800"
 	:initial-height="500"
 	:can-resize="true"
@@ -13,14 +14,13 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
-import * as Misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import XDrive from './drive.vue';
 import XWindow from '@/components/ui/window.vue';
 import { i18n } from '@/i18n';
 
 defineProps<{
-	initialFolder?: Misskey.entities.DriveFolder;
+	initialFolder?: foundkey.entities.DriveFolder;
 }>();
 
 const emit = defineEmits<{

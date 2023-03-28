@@ -1,6 +1,6 @@
 <template>
 <MkStickyContainer>
-	<template #header><MkPageHeader v-model:tab="tab" :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader v-model:tab="tab" :tabs="headerTabs"/></template>
 	<MkSpacer :content-max="500" :margin-min="16" :margin-max="32">
 		<FormSuspense :p="init">
 			<div v-if="tab === 'overview'" class="_formRoot">
@@ -36,8 +36,9 @@
 					<FormSwitch v-model="suspended" class="_formBlock" @update:modelValue="toggleSuspend">{{ i18n.ts.suspend }}</FormSwitch>
 					{{ i18n.ts.reflectMayTakeTime }}
 					<div class="_formBlock">
-						<FormButton v-if="user.host == null && iAmModerator" inline style="margin-right: 8px;" @click="resetPassword"><i class="fas fa-key"></i> {{ i18n.ts.resetPassword }}</FormButton>
-						<FormButton v-if="$i.isAdmin" inline danger @click="deleteAccount">{{ i18n.ts.deleteAccount }}</FormButton>
+						<MkButton v-if="user.host == null" inline style="margin-right: 8px;" @click="resetPassword"><i class="fas fa-key"></i> {{ i18n.ts.resetPassword }}</MkButton>
+						<MkButton inline danger @click="deleteAllFiles">{{ i18n.ts.deleteAllFiles }}</MkButton>
+						<MkButton v-if="$i.isAdmin" inline danger @click="deleteAccount">{{ i18n.ts.deleteAccount }}</MkButton>
 					</div>
 				</FormSection>
 
@@ -63,7 +64,7 @@
 						</MkKeyValue>
 					</div>
 
-					<FormButton v-if="user.host != null" class="_formBlock" @click="updateRemoteUser"><i class="fas fa-sync"></i> {{ i18n.ts.updateRemoteUser }}</FormButton>
+					<MkButton v-if="user.host != null" @click="updateRemoteUser"><i class="fas fa-sync"></i> {{ i18n.ts.updateRemoteUser }}</MkButton>
 				</FormSection>
 			</div>
 			<div v-else-if="tab === 'chart'" class="_formRoot">
@@ -102,14 +103,14 @@
 
 <script lang="ts" setup>
 import { computed, defineAsyncComponent, defineComponent, watch } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import MkChart from '@/components/chart.vue';
 import MkObjectView from '@/components/object-view.vue';
 import FormTextarea from '@/components/form/textarea.vue';
 import FormSwitch from '@/components/form/switch.vue';
 import FormLink from '@/components/form/link.vue';
 import FormSection from '@/components/form/section.vue';
-import FormButton from '@/components/ui/button.vue';
+import MkButton from '@/components/ui/button.vue';
 import MkKeyValue from '@/components/key-value.vue';
 import MkSelect from '@/components/form/select.vue';
 import FormSuspense from '@/components/form/suspense.vue';
@@ -129,7 +130,7 @@ const props = defineProps<{
 
 let tab = $ref('overview');
 let chartSrc = $ref('per-user-notes');
-let user = $ref<null | misskey.entities.UserDetailed>();
+let user = $ref<null | foundkey.entities.UserDetailed>();
 let init = $ref();
 let info = $ref();
 let ap = $ref(null);
@@ -239,7 +240,7 @@ async function deleteAllFiles() {
 async function deleteAccount() {
 	const confirm = await os.confirm({
 		type: 'warning',
-		text: i18n.ts.deleteAccountConfirm,
+		text: i18n.t('deleteAccountConfirm', { handle: acct(user) }),
 	});
 	if (confirm.canceled) return;
 
@@ -249,7 +250,7 @@ async function deleteAccount() {
 	if (typed.canceled) return;
 
 	if (typed.result === user?.username) {
-		await os.apiWithDialog('admin/delete-account', {
+		await os.apiWithDialog('admin/accounts/delete', {
 			userId: user.id,
 		});
 	} else {
@@ -273,8 +274,6 @@ watch(() => user, () => {
 		ap = res;
 	});
 });
-
-const headerActions = $computed(() => []);
 
 const headerTabs = $computed(() => [{
 	key: 'overview',

@@ -35,12 +35,12 @@ export const NoteReactionRepository = db.getRepository(NoteReaction).extend({
 		src: NoteReaction[],
 		me?: { id: User['id'] } | null | undefined,
 		options?: {
-			withNote: booleam;
+			withNote: boolean;
 		},
 	): Promise<Packed<'NoteReaction'>[]> {
 		const reactions = await Promise.allSettled(src.map(reaction => this.pack(reaction, me, options)));
 
 		// filter out rejected promises, only keep fulfilled values
 		return reactions.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
-	}
+	},
 });

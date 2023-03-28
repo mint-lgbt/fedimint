@@ -6,8 +6,7 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
-import * as Acct from 'misskey-js/built/acct';
+import * as Acct from 'foundkey-js/built/acct';
 import * as os from '@/os';
 import { mainRouter } from '@/router';
 import { i18n } from '@/i18n';
@@ -15,7 +14,7 @@ import { i18n } from '@/i18n';
 let state: 'loading' | 'error' | 'done' = $ref('loading');
 let finalError: boolean = $ref(false);
 
-async function follow(user) {
+async function follow(user): Promise<void> {
 	const { canceled } = await os.confirm({
 		type: 'question',
 		text: i18n.t('followConfirm', { name: user.name || user.username }),
@@ -31,7 +30,7 @@ async function follow(user) {
 	});
 }
 
-function doIt() {
+function doIt(): void {
 	// this might be a retry
 	state = 'loading';
 

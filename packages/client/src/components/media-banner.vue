@@ -6,15 +6,18 @@
 		<span>{{ i18n.ts.clickToShow }}</span>
 	</div>
 	<div v-else-if="media.type.startsWith('audio') && media.type !== 'audio/midi'" class="audio">
-		<audio ref="audioEl"
+		<audio
+			ref="audioEl"
 			class="audio"
 			:src="media.url"
 			:title="media.name"
 			controls
 			preload="metadata"
-			@volumechange="volumechange" />
+			@volumechange="volumechange"
+		/>
 	</div>
-	<a v-else class="download"
+	<a
+		v-else class="download"
 		:href="media.url"
 		:title="media.name"
 		:download="media.name"
@@ -27,19 +30,18 @@
 
 <script lang="ts" setup>
 import { onMounted } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import { ColdDeviceStorage } from '@/store';
 import { i18n } from '@/i18n';
 
-const props = withDefaults(defineProps<{
-	media: misskey.entities.DriveFile;
-}>(), {
-});
+defineProps<{
+	media: foundkey.entities.DriveFile;
+}>();
 
 const audioEl = $ref<HTMLAudioElement | null>();
 let hide = $ref(true);
 
-function volumechange() {
+function volumechange(): void {
 	if (audioEl) ColdDeviceStorage.set('mediaVolume', audioEl.volume);
 }
 

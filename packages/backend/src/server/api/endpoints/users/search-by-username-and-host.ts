@@ -1,4 +1,5 @@
 import { Brackets } from 'typeorm';
+import { MONTH } from '@/const.js';
 import { Followings, Users } from '@/models/index.js';
 import { User } from '@/models/entities/user.js';
 import define from '../../define.js';
@@ -39,11 +40,11 @@ export const paramDef = {
 
 // eslint-disable-next-line import/no-default-export
 export default define(meta, paramDef, async (ps, me) => {
-	const activeThreshold = new Date(Date.now() - (1000 * 60 * 60 * 24 * 30)); // 30日
+	const activeThreshold = new Date(Date.now() - MONTH);
 
 	if (ps.host) {
 		const q = Users.createQueryBuilder('user')
-			.where('user.isSuspended = FALSE')
+			.where('NOT user.isSuspended')
 			.andWhere('user.host LIKE :host', { host: ps.host.toLowerCase() + '%' });
 
 		if (ps.username) {
@@ -67,7 +68,7 @@ export default define(meta, paramDef, async (ps, me) => {
 			const query = Users.createQueryBuilder('user')
 				.where(`user.id IN (${ followingQuery.getQuery() })`)
 				.andWhere('user.id != :meId', { meId: me.id })
-				.andWhere('user.isSuspended = FALSE')
+				.andWhere('NOT user.isSuspended')
 				.andWhere('user.usernameLower LIKE :username', { username: ps.username.toLowerCase() + '%' })
 				.andWhere(new Brackets(qb => { qb
 					.where('user.updatedAt IS NULL')
@@ -85,7 +86,7 @@ export default define(meta, paramDef, async (ps, me) => {
 				const otherQuery = await Users.createQueryBuilder('user')
 					.where(`user.id NOT IN (${ followingQuery.getQuery() })`)
 					.andWhere('user.id != :meId', { meId: me.id })
-					.andWhere('user.isSuspended = FALSE')
+					.andWhere('user.isSuspended')
 					.andWhere('user.usernameLower LIKE :username', { username: ps.username.toLowerCase() + '%' })
 					.andWhere('user.updatedAt IS NOT NULL');
 
@@ -100,7 +101,7 @@ export default define(meta, paramDef, async (ps, me) => {
 			}
 		} else {
 			users = await Users.createQueryBuilder('user')
-				.where('user.isSuspended = FALSE')
+				.where('user.isSuspended')
 				.andWhere('user.usernameLower LIKE :username', { username: ps.username.toLowerCase() + '%' })
 				.andWhere('user.updatedAt IS NOT NULL')
 				.orderBy('user.updatedAt', 'DESC')

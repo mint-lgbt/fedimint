@@ -11,7 +11,6 @@
 >
 	<MkNoteSub v-if="appearNote.reply" :note="appearNote.reply" class="reply-to"/>
 	<div v-if="pinned" class="info"><i class="fas fa-thumbtack"></i> {{ i18n.ts.pinnedNote }}</div>
-	<div v-if="appearNote._prId_" class="info"><i class="fas fa-bullhorn"></i> {{ i18n.ts.promotion }}<button class="_textButton hide" @click="readPromo()">{{ i18n.ts.hideThisNote }} <i class="fas fa-times"></i></button></div>
 	<div v-if="appearNote._featuredId_" class="info"><i class="fas fa-bolt"></i> {{ i18n.ts.featured }}</div>
 	<div v-if="isRenote" class="renote">
 		<MkAvatar class="avatar" :user="note.user"/>
@@ -35,7 +34,7 @@
 		<MkAvatar class="avatar" :user="appearNote.user"/>
 		<div class="main">
 			<XNoteHeader class="header" :note="appearNote" :mini="true"/>
-			<MkInstanceTicker v-if="showTicker" class="ticker" :instance="appearNote.user.instance"/>
+			<MkInstanceTicker v-if="showTicker" class="ticker" :host="appearNote.user.host" :instance="appearNote.user.instance"/>
 			<div class="body">
 				<p v-if="appearNote.cw != null" class="cw">
 					<Mfm v-if="appearNote.cw != ''" class="text" :text="appearNote.cw" :author="appearNote.user" :i="$i" :custom-emojis="appearNote.emojis"/>
@@ -49,7 +48,7 @@
 						<div v-if="translating || translation" class="translation">
 							<MkLoading v-if="translating" mini/>
 							<div v-else class="translated">
-								<b>{{ $t('translatedFrom', { x: translation.sourceLang }) }}: </b>
+								<b>{{ i18n.t('translatedFrom', { x: translation.sourceLang }) }}: </b>
 								<Mfm :text="translation.text" :author="appearNote.user" :i="$i" :custom-emojis="appearNote.emojis"/>
 							</div>
 						</div>
@@ -80,7 +79,7 @@
 				<button v-if="appearNote.myReaction == null" ref="reactButton" class="button _button" @click="react()">
 					<i class="fas fa-plus"></i>
 				</button>
-				<button v-if="appearNote.myReaction != null" ref="reactButton" class="button _button reacted" @click="undoReact(appearNote)">
+				<button v-if="appearNote.myReaction != null" ref="reactButton" class="button _button reacted" @click="undoReact()">
 					<i class="fas fa-minus"></i>
 				</button>
 				<button ref="menuButton" class="button _button" @click="menu()">
@@ -102,9 +101,9 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, inject, onMounted, onUnmounted, reactive, ref, Ref } from 'vue';
+import { inject, onMounted, ref, Ref } from 'vue';
 import * as mfm from 'mfm-js';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import MkNoteSub from './MkNoteSub.vue';
 import XNoteHeader from './note-header.vue';
 import XNoteSimple from './note-simple.vue';
@@ -130,7 +129,7 @@ import { getNoteMenu } from '@/scripts/get-note-menu';
 import { useNoteCapture } from '@/scripts/use-note-capture';
 
 const props = defineProps<{
-	note: misskey.entities.Note;
+	note: foundkey.entities.Note;
 	pinned?: boolean;
 }>();
 
@@ -149,19 +148,14 @@ if (noteViewInterruptors.length > 0) {
 	});
 }
 
-const isRenote = (
-	note.renote != null &&
-	note.text == null &&
-	note.fileIds.length === 0 &&
-	note.poll == null
-);
+const isRenote = foundkey.entities.isPureRenote(note);
 
 const el = ref<HTMLElement>();
 const menuButton = ref<HTMLElement>();
 const renoteButton = ref<InstanceType<typeof XRenoteButton>>();
 const renoteTime = ref<HTMLElement>();
 const reactButton = ref<HTMLElement>();
-let appearNote = $computed(() => isRenote ? note.renote as misskey.entities.Note : note);
+let appearNote = $computed(() => isRenote ? note.renote as foundkey.entities.Note : note);
 const isMyRenote = $i && ($i.id === note.userId);
 const showContent = ref(false);
 const isLong = (appearNote.cw == null && appearNote.text != null && (
@@ -178,7 +172,7 @@ const showTicker = (defaultStore.state.instanceTicker === 'always') || (defaultS
 
 const keymap = {
 	'r': () => reply(true),
-	'e|a|plus': () => react(true),
+	'e|a|plus': () => react(),
 	'q': () => renoteButton.value.renote(true),
 	'up|k|shift+tab': focusBefore,
 	'down|j|tab': focusAfter,
@@ -203,28 +197,27 @@ function reply(viaKeyboard = false): void {
 	});
 }
 
-function react(viaKeyboard = false): void {
+function react(): void {
 	pleaseLogin();
 	blur();
 	reactionPicker.show(reactButton.value, reaction => {
 		os.api('notes/reactions/create', {
 			noteId: appearNote.id,
-			reaction: reaction,
+			reaction,
 		});
 	}, () => {
 		focus();
 	});
 }
 
-function undoReact(note): void {
-	const oldReaction = note.myReaction;
-	if (!oldReaction) return;
+function undoReact(): void {
+	if (!appearNote.myReaction) return;
 	os.api('notes/reactions/delete', {
-		noteId: note.id,
+		noteId: appearNote.id,
 	});
 }
 
-const currentClipPage = inject<Ref<misskey.entities.Clip> | null>('currentClipPage', null);
+const currentClipPage = inject<Ref<foundkey.entities.Clip> | null>('currentClipPage', null);
 
 function onContextmenu(ev: MouseEvent): void {
 	const isLink = (el: HTMLElement) => {
@@ -240,12 +233,12 @@ function onContextmenu(ev: MouseEvent): void {
 		ev.preventDefault();
 		react();
 	} else {
-		os.contextMenu(getNoteMenu({ note: note, translating, translation, menuButton, isDeleted, currentClipPage }), ev).then(focus);
+		os.contextMenu(getNoteMenu({ note, translating, translation, menuButton, isDeleted, currentClipPage }), ev).then(focus);
 	}
 }
 
 function menu(viaKeyboard = false): void {
-	os.popupMenu(getNoteMenu({ note: note, translating, translation, menuButton, isDeleted, currentClipPage }), menuButton.value, {
+	os.popupMenu(getNoteMenu({ note, translating, translation, menuButton, isDeleted, currentClipPage }), menuButton.value, {
 		viaKeyboard,
 	}).then(focus);
 }
@@ -263,7 +256,7 @@ function showRenoteMenu(viaKeyboard = false): void {
 			isDeleted.value = true;
 		},
 	}], renoteTime.value, {
-		viaKeyboard: viaKeyboard,
+		viaKeyboard,
 	});
 }
 
@@ -281,13 +274,6 @@ function focusBefore() {
 
 function focusAfter() {
 	focusNext(el.value);
-}
-
-function readPromo() {
-	os.api('promo/read', {
-		noteId: appearNote.id,
-	});
-	isDeleted.value = true;
 }
 </script>
 

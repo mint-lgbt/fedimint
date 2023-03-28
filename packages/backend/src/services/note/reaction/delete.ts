@@ -2,14 +2,14 @@ import { publishNoteStream } from '@/services/stream.js';
 import { renderLike } from '@/remote/activitypub/renderer/like.js';
 import renderUndo from '@/remote/activitypub/renderer/undo.js';
 import { renderActivity } from '@/remote/activitypub/renderer/index.js';
-import DeliverManager from '@/remote/activitypub/deliver-manager.js';
+import { DeliverManager } from '@/remote/activitypub/deliver-manager.js';
 import { IdentifiableError } from '@/misc/identifiable-error.js';
 import { User, IRemoteUser } from '@/models/entities/user.js';
 import { Note } from '@/models/entities/note.js';
 import { NoteReactions, Users, Notes } from '@/models/index.js';
 import { decodeReaction } from '@/misc/reaction-lib.js';
 
-export default async (user: { id: User['id']; host: User['host']; }, note: Note) => {
+export async function deleteReaction(user: { id: User['id']; host: User['host']; }, note: Note): Promise<void> {
 	// if already unreacted
 	const exist = await NoteReactions.findOneBy({
 		noteId: note.id,
@@ -55,4 +55,4 @@ export default async (user: { id: User['id']; host: User['host']; }, note: Note)
 		dm.execute();
 	}
 	//#endregion
-};
+}

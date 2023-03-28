@@ -51,11 +51,11 @@
 						</dl>
 						<dl v-if="user.birthday" class="field">
 							<dt class="name"><i class="fas fa-birthday-cake fa-fw"></i> {{ i18n.ts.birthday }}</dt>
-							<dd class="value">{{ user.birthday.replace('-', '/').replace('-', '/') }} ({{ $t('yearsOld', { age }) }})</dd>
+							<dd class="value"><MkBirthdayDate :birthday="user.birthday"/></dd>
 						</dl>
 						<dl class="field">
 							<dt class="name"><i class="fas fa-calendar-alt fa-fw"></i> {{ i18n.ts.registeredDate }}</dt>
-							<dd class="value">{{ new Date(user.createdAt).toLocaleString() }} (<MkTime :time="user.createdAt"/>)</dd>
+							<dd class="value"><MkTime mode="detail" :time="user.createdAt"/></dd>
 						</dl>
 					</div>
 					<div v-if="user.fields.length > 0" class="fields">
@@ -69,15 +69,15 @@
 						</dl>
 					</div>
 					<div class="status">
-						<MkA v-click-anime :to="userPage(user)" :class="{ active: page === 'index' }">
+						<MkA :to="userPage(user)" :class="{ active: page === 'index' }">
 							<b>{{ number(user.notesCount) }}</b>
 							<span>{{ i18n.ts.notes }}</span>
 						</MkA>
-						<MkA v-click-anime :to="userPage(user, 'following')" :class="{ active: page === 'following' }">
+						<MkA :to="userPage(user, 'following')" :class="{ active: page === 'following' }">
 							<b>{{ number(user.followingCount) }}</b>
 							<span>{{ i18n.ts.following }}</span>
 						</MkA>
-						<MkA v-click-anime :to="userPage(user, 'followers')" :class="{ active: page === 'followers' }">
+						<MkA :to="userPage(user, 'followers')" :class="{ active: page === 'followers' }">
 							<b>{{ number(user.followersCount) }}</b>
 							<span>{{ i18n.ts.followers }}</span>
 						</MkA>
@@ -108,21 +108,18 @@
 </template>
 
 <script lang="ts" setup>
-import { defineAsyncComponent, computed, inject, onMounted, onUnmounted, watch } from 'vue';
-import calcAge from 's-age';
-import * as misskey from 'misskey-js';
+import { defineAsyncComponent, onMounted, onUnmounted } from 'vue';
+import * as foundkey from 'foundkey-js';
 import XUserTimeline from './index.timeline.vue';
 import XNote from '@/components/note.vue';
+import MkBirthdayDate from '@/components/birthday-date.vue';
 import MkFollowButton from '@/components/follow-button.vue';
-import MkContainer from '@/components/ui/container.vue';
-import MkFolder from '@/components/ui/folder.vue';
 import MkRemoteCaution from '@/components/remote-caution.vue';
-import MkTab from '@/components/tab.vue';
 import MkInfo from '@/components/ui/info.vue';
 import { getScrollPosition } from '@/scripts/scroll';
 import { getUserMenu } from '@/scripts/get-user-menu';
 import number from '@/filters/number';
-import { userPage, acct as getAcct } from '@/filters/user';
+import { userPage } from '@/filters/user';
 import * as os from '@/os';
 import { useRouter } from '@/router';
 import { i18n } from '@/i18n';
@@ -132,7 +129,7 @@ const XPhotos = defineAsyncComponent(() => import('./index.photos.vue'));
 const XActivity = defineAsyncComponent(() => import('./index.activity.vue'));
 
 const props = withDefaults(defineProps<{
-	user: misskey.entities.UserDetailed;
+	user: foundkey.entities.UserDetailed;
 }>(), {
 });
 
@@ -148,10 +145,6 @@ const style = $computed(() => {
 	return {
 		backgroundImage: `url(${ props.user.bannerUrl })`,
 	};
-});
-
-const age = $computed(() => {
-	return calcAge(props.user.birthday);
 });
 
 function menu(ev) {

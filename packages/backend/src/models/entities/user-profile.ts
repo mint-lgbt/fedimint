@@ -1,5 +1,5 @@
 import { Entity, Column, Index, OneToOne, JoinColumn, PrimaryColumn } from 'typeorm';
-import { ffVisibility, notificationTypes } from '@/types.js';
+import { ffVisibility, notificationTypes } from 'foundkey-js';
 import { id } from '../id.js';
 import { User } from './user.js';
 import { Page } from './page.js';
@@ -11,7 +11,7 @@ export class UserProfile {
 	@PrimaryColumn(id())
 	public userId: User['id'];
 
-	@OneToOne(type => User, {
+	@OneToOne(() => User, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()
@@ -124,13 +124,6 @@ export class UserProfile {
 	})
 	public clientData: Record<string, any>;
 
-	// TODO: そのうち消す
-	@Column('jsonb', {
-		default: {},
-		comment: 'The room data of the User.',
-	})
-	public room: Record<string, any>;
-
 	@Column('boolean', {
 		default: false,
 	})
@@ -168,16 +161,11 @@ export class UserProfile {
 	})
 	public pinnedPageId: Page['id'] | null;
 
-	@OneToOne(type => Page, {
+	@OneToOne(() => Page, {
 		onDelete: 'SET NULL',
 	})
 	@JoinColumn()
 	public pinnedPage: Page | null;
-
-	@Column('jsonb', {
-		default: {},
-	})
-	public integrations: Record<string, any>;
 
 	@Index()
 	@Column('boolean', {

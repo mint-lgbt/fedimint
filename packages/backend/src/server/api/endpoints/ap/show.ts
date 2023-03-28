@@ -1,16 +1,15 @@
-import config from '@/config/index.js';
 import { createPerson } from '@/remote/activitypub/models/person.js';
 import { createNote } from '@/remote/activitypub/models/note.js';
-import DbResolver from '@/remote/activitypub/db-resolver.js';
-import Resolver from '@/remote/activitypub/resolver.js';
+import { DbResolver } from '@/remote/activitypub/db-resolver.js';
+import { Resolver } from '@/remote/activitypub/resolver.js';
 import { extractDbHost } from '@/misc/convert-host.js';
 import { Users, Notes } from '@/models/index.js';
 import { Note } from '@/models/entities/note.js';
 import { CacheableLocalUser, User } from '@/models/entities/user.js';
-import { fetchMeta } from '@/misc/fetch-meta.js';
-import { isActor, isPost, getApId } from '@/remote/activitypub/type.js';
+import { isActor, isPost } from '@/remote/activitypub/type.js';
 import { SchemaType } from '@/misc/schema.js';
 import { HOUR } from '@/const.js';
+import { shouldBlockInstance } from '@/misc/should-block-instance.js';
 import define from '../../define.js';
 import { ApiError } from '../../error.js';
 
@@ -19,18 +18,14 @@ export const meta = {
 
 	requireCredential: true,
 
+	description: 'Shows the requested object. If necessary, fetches the object from the remote server.',
+
 	limit: {
 		duration: HOUR,
 		max: 30,
 	},
 
-	errors: {
-		noSuchObject: {
-			message: 'No such object.',
-			code: 'NO_SUCH_OBJECT',
-			id: 'dc94d745-1262-4e63-a17d-fecaa57efc82',
-		},
-	},
+	errors: ['NO_SUCH_OBJECT'],
 
 	res: {
 		optional: false, nullable: false,
@@ -47,8 +42,8 @@ export const meta = {
 						type: 'object',
 						optional: false, nullable: false,
 						ref: 'UserDetailedNotMe',
-					}
-				}
+					},
+				},
 			},
 			{
 				type: 'object',
@@ -62,9 +57,9 @@ export const meta = {
 						type: 'object',
 						optional: false, nullable: false,
 						ref: 'Note',
-					}
-				}
-			}
+					},
+				},
+			},
 		],
 	},
 } as const;
@@ -83,7 +78,7 @@ export default define(meta, paramDef, async (ps, me) => {
 	if (object) {
 		return object;
 	} else {
-		throw new ApiError(meta.errors.noSuchObject);
+		throw new ApiError('NO_SUCH_OBJECT');
 	}
 });
 
@@ -91,9 +86,11 @@ export default define(meta, paramDef, async (ps, me) => {
  * URIからUserかNoteを解決する
  */
 async function fetchAny(uri: string, me: CacheableLocalUser | null | undefined): Promise<SchemaType<typeof meta['res']> | null> {
-	// ブロックしてたら中断
-	const fetchedMeta = await fetchMeta();
-	if (fetchedMeta.blockedHosts.includes(extractDbHost(uri))) return null;
+	// Stop if the host is blocked.
+	const host = extractDbHost(uri);
+	if (await shouldBlockInstance(host)) {
+		return null;
+	}
 
 	const dbResolver = new DbResolver();
 
@@ -103,9 +100,10 @@ async function fetchAny(uri: string, me: CacheableLocalUser | null | undefined):
 	]));
 	if (local != null) return local;
 
-	// リモートから一旦オブジェクトフェッチ
+	// fetch object from remote
 	const resolver = new Resolver();
-	const object = await resolver.resolve(uri) as any;
+	// allow redirect
+	const object = await resolver.resolve(uri, true) as any;
 
 	// /@user のような正規id以外で取得できるURIが指定されていた場合、ここで初めて正規URIが確定する
 	// これはDBに存在する可能性があるため再度DB検索
@@ -119,8 +117,8 @@ async function fetchAny(uri: string, me: CacheableLocalUser | null | undefined):
 
 	return await mergePack(
 		me,
-		isActor(object) ? await createPerson(getApId(object)) : null,
-		isPost(object) ? await createNote(getApId(object), undefined, true) : null,
+		isActor(object) ? await createPerson(object, resolver) : null,
+		isPost(object) ? await createNote(object, resolver, true) : null,
 	);
 }
 

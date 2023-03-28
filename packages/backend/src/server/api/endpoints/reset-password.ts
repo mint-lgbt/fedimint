@@ -1,5 +1,6 @@
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '@/misc/password.js';
 import { UserProfiles, PasswordResetRequests } from '@/models/index.js';
+import { DAY, MINUTE } from '@/const.js';
 import define from '../define.js';
 
 export const meta = {
@@ -9,9 +10,12 @@ export const meta = {
 
 	description: 'Complete the password reset that was previously requested.',
 
-	errors: {
-
+	limit: {
+		duration: DAY,
+		max: 1,
 	},
+
+	errors: ['NO_SUCH_RESET_REQUEST'],
 } as const;
 
 export const paramDef = {
@@ -24,23 +28,24 @@ export const paramDef = {
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, paramDef, async (ps, user) => {
-	const req = await PasswordResetRequests.findOneByOrFail({
+export default define(meta, paramDef, async (ps) => {
+	const req = await PasswordResetRequests.findOneBy({
 		token: ps.token,
 	});
+	if (req == null) throw new ApiError('NO_SUCH_RESET_REQUEST');
 
-	// 発行してから30分以上経過していたら無効
-	if (Date.now() - req.createdAt.getTime() > 1000 * 60 * 30) {
-		throw new Error(); // TODO
+	// expires after 30 minutes
+	// This is a secondary check just in case the expiry task is broken,
+	// the expiry task is badly aligned with this expiration or something
+	// else strange is going on.
+	if (Date.now() - req.createdAt.getTime() > 30 * MINUTE) {
+		await PasswordResetRequests.delete(req.id);
+		throw new ApiError('NO_SUCH_RESET_REQUEST');
 	}
 
-	// Generate hash of password
-	const salt = await bcrypt.genSalt(8);
-	const hash = await bcrypt.hash(ps.password, salt);
-
 	await UserProfiles.update(req.userId, {
-		password: hash,
+		password: await hashPassword(ps.password),
 	});
 
-	PasswordResetRequests.delete(req.id);
+	await PasswordResetRequests.delete(req.id);
 });

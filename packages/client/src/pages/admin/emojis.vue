@@ -1,30 +1,31 @@
 <template>
 <div>
 	<MkStickyContainer>
-		<template #header><XHeader v-model:tab="tab" :actions="headerActions" :tabs="headerTabs"/></template>
+		<template #header><MkPageHeader v-model:tab="tab" :actions="headerActions" :tabs="headerTabs"/></template>
 		<MkSpacer :content-max="900">
 			<div class="ogwlenmc">
 				<div v-if="tab === 'local'" class="local">
-					<MkInput v-model="query" :debounce="true" type="search">
+					<FormInput v-model="query" :debounce="true" type="search">
 						<template #prefix><i class="fas fa-search"></i></template>
 						<template #label>{{ i18n.ts.search }}</template>
-					</MkInput>
-					<MkSwitch v-model="selectMode" style="margin: 8px 0;">
-						<template #label>Select mode</template>
-					</MkSwitch>
+					</FormInput>
+					<FormSwitch v-model="selectMode">
+						<template #label>{{ i18n.ts.selectMode }}</template>
+					</FormSwitch>
 					<div v-if="selectMode" style="display: flex; gap: var(--margin); flex-wrap: wrap;">
-						<MkButton inline @click="selectAll">Select all</MkButton>
-						<MkButton inline @click="setCategoryBulk">Set category</MkButton>
-						<MkButton inline @click="addTagBulk">Add tag</MkButton>
-						<MkButton inline @click="removeTagBulk">Remove tag</MkButton>
-						<MkButton inline @click="setTagBulk">Set tag</MkButton>
-						<MkButton inline danger @click="delBulk">Delete</MkButton>
+						<MkButton inline @click="selectAll">{{ i18n.ts.selectAll }}</MkButton>
+						<MkButton inline @click="setCategoryBulk">{{ i18n.ts.setCategory }}</MkButton>
+						<MkButton inline @click="addTagBulk">{{ i18n.ts.addTag }}</MkButton>
+						<MkButton inline @click="removeTagBulk">{{ i18n.ts.removeTag }}</MkButton>
+						<MkButton inline @click="setTagBulk">{{ i18n.ts.setTag }}</MkButton>
+						<MkButton inline @click="exportSelected">{{ i18n.ts.exportSelected }}</MkButton>
+						<MkButton inline danger @click="delBulk">{{ i18n.ts.delete }}</MkButton>
 					</div>
 					<MkPagination ref="emojisPaginationComponent" :pagination="pagination">
 						<template #empty><span>{{ i18n.ts.noCustomEmojis }}</span></template>
 						<template #default="{items}">
 							<div class="ldhfsamy">
-								<button v-for="emoji in items" :key="emoji.id" class="emoji _panel _button" :class="{ selected: selectedEmojis.includes(emoji.id) }" @click="selectMode ? toggleSelect(emoji) : edit(emoji)">
+								<button v-for="emoji in items" :key="emoji.id" class="emoji _panel _button" :class="{ selected: selectMode && selectedEmojis.includes(emoji.id) }" @click="selectMode ? toggleSelect(emoji) : edit(emoji)">
 									<img :src="emoji.url" class="img" :alt="emoji.name"/>
 									<div class="body">
 										<div class="name _monospace">{{ emoji.name }}</div>
@@ -38,13 +39,13 @@
 
 				<div v-else-if="tab === 'remote'" class="remote">
 					<FormSplit>
-						<MkInput v-model="queryRemote" :debounce="true" type="search">
+						<FormInput v-model="queryRemote" :debounce="true" type="search">
 							<template #prefix><i class="fas fa-search"></i></template>
 							<template #label>{{ i18n.ts.search }}</template>
-						</MkInput>
-						<MkInput v-model="host" :debounce="true">
+						</FormInput>
+						<FormInput v-model="host" :debounce="true">
 							<template #label>{{ i18n.ts.host }}</template>
-						</MkInput>
+						</FormInput>
 					</FormSplit>
 					<MkPagination :pagination="remotePagination">
 						<template #empty><span>{{ i18n.ts.noCustomEmojis }}</span></template>
@@ -68,13 +69,11 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, defineAsyncComponent, defineComponent, ref, toRef } from 'vue';
-import XHeader from './_header_.vue';
+import { computed, defineAsyncComponent, ref } from 'vue';
 import MkButton from '@/components/ui/button.vue';
-import MkInput from '@/components/form/input.vue';
+import FormInput from '@/components/form/input.vue';
 import MkPagination from '@/components/ui/pagination.vue';
-import MkTab from '@/components/tab.vue';
-import MkSwitch from '@/components/form/switch.vue';
+import FormSwitch from '@/components/form/switch.vue';
 import FormSplit from '@/components/form/split.vue';
 import { selectFile, selectFiles } from '@/scripts/select-file';
 import * as os from '@/os';
@@ -137,7 +136,7 @@ const add = async (ev: MouseEvent) => {
 
 const edit = (emoji) => {
 	os.popup(defineAsyncComponent(() => import('./emoji-edit-dialog.vue')), {
-		emoji: emoji,
+		emoji,
 	}, {
 		done: result => {
 			if (result.updated) {
@@ -172,7 +171,7 @@ const remoteMenu = (emoji, ev: MouseEvent) => {
 const menu = (ev: MouseEvent) => {
 	os.popupMenu([{
 		icon: 'fas fa-download',
-		text: i18n.ts.export,
+		text: i18n.ts.exportAll,
 		action: async () => {
 			os.api('export-custom-emojis', {
 			})
@@ -257,6 +256,23 @@ const setTagBulk = async () => {
 		aliases: result.split(' '),
 	});
 	emojisPaginationComponent.value.reload();
+};
+
+const exportSelected = async () => {
+	os.api('export-custom-emojis', {
+		ids: selectedEmojis.value,
+	})
+	.then(() => {
+		os.alert({
+			type: 'info',
+			text: i18n.ts.exportRequested,
+		});
+	}).catch((err) => {
+		os.alert({
+			type: 'error',
+			text: err.message,
+		});
+	});
 };
 
 const delBulk = async () => {

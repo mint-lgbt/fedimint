@@ -26,30 +26,28 @@ const themeColor = chalk.hex('#86b300');
 
 function greet(): void {
 	if (!envOption.quiet) {
-		//#region Misskey logo
-		const v = `v${meta.version}`;
-		console.log(themeColor('  _____ _         _           '));
-		console.log(themeColor(' |     |_|___ ___| |_ ___ _ _ '));
-		console.log(themeColor(' | | | | |_ -|_ -| \'_| -_| | |'));
-		console.log(themeColor(' |_|_|_|_|___|___|_,_|___|_  |'));
-		console.log(' ' + chalk.gray(v) + themeColor('                        |___|\n'.substr(v.length)));
+		//#region FoundKey logo
+		console.log(themeColor('  ___                 _ _  __         '));
+		console.log(themeColor(' | __|__ _  _ _ _  __| | |/ /___ _  _ '));
+		console.log(themeColor(' | _/ _ \\ || | \' \\/ _` | \' </ -_) || |'));
+		console.log(themeColor(' |_|\\___/\\_,_|_||_\\__,_|_|\\_\\___|\\_, |'));
+		console.log(themeColor('                                 |__/ '));
 		//#endregion
 
-		console.log(' Misskey is an open-source decentralized microblogging platform.');
-		console.log(chalk.rgb(255, 136, 0)(' If you like Misskey, please donate to support development. https://www.patreon.com/syuilo'));
+		console.log(' FoundKey is an open-source decentralized microblogging platform.');
 
 		console.log('');
 		console.log(chalkTemplate`--- ${os.hostname()} {gray (PID: ${process.pid.toString()})} ---`);
 	}
 
-	bootLogger.info('Welcome to Misskey!');
-	bootLogger.info(`Misskey v${meta.version}`, null, true);
+	bootLogger.info('Welcome to FoundKey!');
+	bootLogger.info(`FoundKey v${meta.version}`, null, true);
 }
 
 /**
  * Init master process
  */
-export async function masterMain(): void {
+export async function masterMain(): Promise<void> {
 	let config!: Config;
 
 	// initialize app
@@ -61,22 +59,21 @@ export async function masterMain(): void {
 		config = loadConfigBoot();
 		await connectDb();
 	} catch (e) {
-		bootLogger.error('Fatal error occurred during initialization', null, true);
+		bootLogger.error('Fatal error occurred during initialization', {}, true);
 		process.exit(1);
 	}
 
-	bootLogger.succ('Misskey initialized');
+	bootLogger.succ('FoundKey initialized');
 
 	if (!envOption.disableClustering) {
-		await spawnWorkers(config.clusterLimit);
+		await spawnWorkers(config.clusterLimits);
 	}
 
 	bootLogger.succ(`Now listening on port ${config.port} on ${config.url}`, null, true);
 
 	if (!envOption.noDaemons) {
-		import('../daemons/server-stats.js').then(x => x.default());
-		import('../daemons/queue-stats.js').then(x => x.default());
-		import('../daemons/janitor.js').then(x => x.default());
+		import('../daemons/server-stats.js').then(x => x.serverStats());
+		import('../daemons/queue-stats.js').then(x => x.queueStats());
 	}
 }
 
@@ -87,7 +84,7 @@ function showEnvironment(): void {
 
 	if (env !== 'production') {
 		logger.warn('The environment is not in production mode.');
-		logger.warn('DO NOT USE FOR PRODUCTION PURPOSE!', null, true);
+		logger.warn('DO NOT USE FOR PRODUCTION PURPOSE!', {}, true);
 	}
 }
 
@@ -110,8 +107,9 @@ function loadConfigBoot(): Config {
 	try {
 		config = loadConfig();
 	} catch (exception) {
-		if (exception.code === 'ENOENT') {
-			configLogger.error('Configuration file not found', null, true);
+		const e = exception as Partial<NodeJS.ErrnoException> | Error;
+		if ('code' in e && e.code === 'ENOENT') {
+			configLogger.error('Configuration file not found', {}, true);
 			process.exit(1);
 		} else if (e instanceof Error) {
 			configLogger.error(e.message);
@@ -135,22 +133,32 @@ async function connectDb(): Promise<void> {
 		const v = await db.query('SHOW server_version').then(x => x[0].server_version);
 		dbLogger.succ(`Connected: v${v}`);
 	} catch (e) {
-		dbLogger.error('Cannot connect', null, true);
-		dbLogger.error(e);
+		dbLogger.error('Cannot connect', {}, true);
+		dbLogger.error(e as Error | string);
 		process.exit(1);
 	}
 }
 
-async function spawnWorkers(limit = 1): void {
-	const workers = Math.min(limit, os.cpus().length);
-	bootLogger.info(`Starting ${workers} worker${workers === 1 ? '' : 's'}...`);
-	await Promise.all([...Array(workers)].map(spawnWorker));
+async function spawnWorkers(clusterLimits: Required<Config['clusterLimits']>): Promise<void> {
+	const modes = ['web' as const, 'queue' as const];
+	const cpus = os.cpus().length;
+	for (const mode of modes.filter(mode => clusterLimits[mode] > cpus)) {
+		bootLogger.warn(`configuration warning: cluster limit for ${mode} exceeds number of cores (${cpus})`);
+	}
+
+	const total = modes.reduce((acc, mode) => acc + clusterLimits[mode], 0);
+	const workers = new Array(total);
+	workers.fill('web', 0, clusterLimits.web);
+	workers.fill('queue', clusterLimits.web);
+
+	bootLogger.info(`Starting ${total} workers...`);
+	await Promise.all(workers.map(mode => spawnWorker(mode)));
 	bootLogger.succ('All workers started');
 }
 
-function spawnWorker(): Promise<void> {
+function spawnWorker(mode: 'web' | 'queue'): Promise<void> {
 	return new Promise(res => {
-		const worker = cluster.fork();
+		const worker = cluster.fork({ mode });
 		worker.on('message', message => {
 			if (message === 'listenFailed') {
 				bootLogger.error('The server Listen failed due to the previous error.');

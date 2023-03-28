@@ -2,7 +2,7 @@
 <MkTooltip ref="tooltip" :target-element="targetElement" :max-width="340" @closed="emit('closed')">
 	<div class="bqxuuuey">
 		<div class="reaction">
-			<XReactionIcon :reaction="reaction" :custom-emojis="emojis" class="icon" :no-style="true"/>
+			<MkEmoji :emoji="reaction" :custom-emojis="emojis" class="icon" :is-reaction="true" :normal="true" :no-style="true"/>
 			<div class="name">{{ reaction.replace('@.', '') }}</div>
 		</div>
 		<div class="users">
@@ -17,15 +17,13 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import MkTooltip from './ui/tooltip.vue';
-import XReactionIcon from './reaction-icon.vue';
 
-const props = defineProps<{
+defineProps<{
 	reaction: string;
-	users: any[]; // TODO
+	users: Record<string, any>[]; // TODO
 	count: number;
-	emojis: any[]; // TODO
+	emojis: Record<string, any>[]; // TODO
 	targetElement: HTMLElement;
 }>();
 

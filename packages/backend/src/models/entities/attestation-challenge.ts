@@ -11,7 +11,7 @@ export class AttestationChallenge {
 	@PrimaryColumn(id())
 	public userId: User['id'];
 
-	@ManyToOne(type => User, {
+	@ManyToOne(() => User, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()
@@ -35,12 +35,4 @@ export class AttestationChallenge {
 		default: false,
 	})
 	public registrationChallenge: boolean;
-
-	constructor(data: Partial<AttestationChallenge>) {
-		if (data == null) return;
-
-		for (const [k, v] of Object.entries(data)) {
-			(this as any)[k] = v;
-		}
-	}
 }

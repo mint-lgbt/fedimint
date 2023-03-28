@@ -11,6 +11,7 @@ import { generateRepliesQuery } from '../../common/generate-replies-query.js';
 import { generateMutedNoteQuery } from '../../common/generate-muted-note-query.js';
 import { generateChannelQuery } from '../../common/generate-channel-query.js';
 import { generateBlockedUserQuery } from '../../common/generate-block-query.js';
+import { generateMutedRenotesQuery } from '../../common/generated-muted-renote-query.js';
 
 export const meta = {
 	tags: ['notes'],
@@ -27,13 +28,7 @@ export const meta = {
 		},
 	},
 
-	errors: {
-		stlDisabled: {
-			message: 'Hybrid timeline has been disabled.',
-			code: 'STL_DISABLED',
-			id: '620763f4-f621-4533-ab33-0577a1a3c342',
-		},
-	},
+	errors: ['TIMELINE_DISABLED'],
 } as const;
 
 export const paramDef = {
@@ -60,7 +55,7 @@ export const paramDef = {
 export default define(meta, paramDef, async (ps, user) => {
 	const m = await fetchMeta();
 	if (m.disableLocalTimeline && (!user.isAdmin && !user.isModerator)) {
-		throw new ApiError(meta.errors.stlDisabled);
+		throw new ApiError('TIMELINE_DISABLED');
 	}
 
 	//#region Construct query
@@ -93,6 +88,7 @@ export default define(meta, paramDef, async (ps, user) => {
 	generateMutedUserQuery(query, user);
 	generateMutedNoteQuery(query, user);
 	generateBlockedUserQuery(query, user);
+	generateMutedRenotesQuery(query, user);
 
 	if (ps.includeMyRenotes === false) {
 		query.andWhere(new Brackets(qb => {

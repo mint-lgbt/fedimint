@@ -2,7 +2,7 @@
 <MkModal ref="modal" @click="$emit('click')" @closed="$emit('closed')">
 	<div ref="rootEl" class="hrmcaedk _narrow_" :style="{ width: `${width}px`, height: (height ? `min(${height}px, 100%)` : '100%') }">
 		<div class="header" @contextmenu="onContextmenu">
-			<button v-if="history.length > 0" v-tooltip="$ts.goBack" class="_button" @click="back()"><i class="fas fa-arrow-left"></i></button>
+			<button v-if="history.length > 0" v-tooltip="i18n.ts.goBack" class="_button" @click="back()"><i class="fas fa-arrow-left"></i></button>
 			<span v-else style="display: inline-block; width: 20px"></span>
 			<span v-if="pageMetadata?.value" class="title">
 				<i v-if="pageMetadata?.value.icon" class="icon" :class="pageMetadata?.value.icon"></i>
@@ -29,7 +29,7 @@ import { url } from '@/config';
 import * as os from '@/os';
 import { mainRouter, routes } from '@/router';
 import { i18n } from '@/i18n';
-import { PageMetadata, provideMetadataReceiver, setPageMetadata } from '@/scripts/page-metadata';
+import { PageMetadata, provideMetadataReceiver } from '@/scripts/page-metadata';
 import { Router } from '@/nirax';
 
 const props = defineProps<{
@@ -42,10 +42,6 @@ defineEmits<{
 }>();
 
 const router = new Router(routes, props.initialPath);
-
-router.addListener('push', ctx => {
-	
-});
 
 let pageMetadata = $ref<null | ComputedRef<PageMetadata>>();
 let rootEl = $ref();
@@ -122,6 +118,7 @@ function onContextmenu(ev: MouseEvent) {
 	flex-direction: column;
 	contain: content;
 	border-radius: var(--radius);
+	background: var(--bg);
 
 	--root-margin: 24px;
 
@@ -140,9 +137,6 @@ function onContextmenu(ev: MouseEvent) {
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		background: var(--windowHeader);
-		-webkit-backdrop-filter: var(--blur, blur(15px));
-		backdrop-filter: var(--blur, blur(15px));
 
 		> button {
 			height: $height;
@@ -175,7 +169,6 @@ function onContextmenu(ev: MouseEvent) {
 
 	> .body {
 		overflow: auto;
-		background: var(--bg);
 	}
 }
 </style>

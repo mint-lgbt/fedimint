@@ -1,6 +1,6 @@
 <template>
 <MkStickyContainer>
-	<template #header><XHeader :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader/></template>
 	<MkSpacer :content-max="700" :margin-min="16" :margin-max="32">
 		<FormSuspense :p="init">
 			<div class="_formRoot">
@@ -23,7 +23,7 @@
 							<template #label>Summaly Proxy URL</template>
 						</FormInput>
 
-						<FormButton primary class="_formBlock" @click="save"><i class="fas fa-save"></i> {{ i18n.ts.save }}</FormButton>
+						<MkButton primary class="_formBlock" @click="save"><i class="fas fa-save"></i> {{ i18n.ts.save }}</MkButton>
 					</div>
 				</FormFolder>
 			</div>
@@ -33,16 +33,11 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import XBotProtection from './bot-protection.vue';
-import XHeader from './_header_.vue';
 import FormFolder from '@/components/form/folder.vue';
-import FormSwitch from '@/components/form/switch.vue';
-import FormInfo from '@/components/ui/info.vue';
 import FormSuspense from '@/components/form/suspense.vue';
-import FormSection from '@/components/form/section.vue';
 import FormInput from '@/components/form/input.vue';
-import FormButton from '@/components/ui/button.vue';
+import MkButton from '@/components/ui/button.vue';
 import * as os from '@/os';
 import { fetchInstance } from '@/instance';
 import { i18n } from '@/i18n';
@@ -52,24 +47,20 @@ let summalyProxy: string = $ref('');
 let enableHcaptcha: boolean = $ref(false);
 let enableRecaptcha: boolean = $ref(false);
 
-async function init() {
+async function init(): Promise<void> {
 	const meta = await os.api('admin/meta');
 	summalyProxy = meta.summalyProxy;
 	enableHcaptcha = meta.enableHcaptcha;
 	enableRecaptcha = meta.enableRecaptcha;
 }
 
-function save() {
+function save(): void {
 	os.apiWithDialog('admin/update-meta', {
 		summalyProxy,
 	}).then(() => {
 		fetchInstance();
 	});
 }
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.security,

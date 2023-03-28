@@ -28,7 +28,7 @@
 
 <script lang="ts" setup>
 import { onMounted, watch } from 'vue';
-import * as Misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import autosize from 'autosize';
 //import insertTextAtCursor from 'insert-text-at-cursor';
 import { throttle } from 'throttle-debounce';
@@ -42,15 +42,15 @@ import { i18n } from '@/i18n';
 import { uploadFile } from '@/scripts/upload';
 
 const props = defineProps<{
-	user?: Misskey.entities.UserDetailed | null;
-	group?: Misskey.entities.UserGroup | null;
+	user?: foundkey.entities.UserDetailed | null;
+	group?: foundkey.entities.UserGroup | null;
 }>();
 
 let textEl = $ref<HTMLTextAreaElement>();
 let fileEl = $ref<HTMLInputElement>();
 
 let text = $ref<string>('');
-let file = $ref<Misskey.entities.DriveFile | null>(null);
+let file = $ref<foundkey.entities.DriveFile | null>(null);
 let sending = $ref(false);
 const typing = throttle(3000, () => {
 	stream.send('typingOnMessaging', props.user ? { partner: props.user.id } : { group: props.group?.id });
@@ -93,7 +93,22 @@ function onDragover(ev: DragEvent) {
 	const isDriveFile = ev.dataTransfer.types[0] === _DATA_TRANSFER_DRIVE_FILE_;
 	if (isFile || isDriveFile) {
 		ev.preventDefault();
-		ev.dataTransfer.dropEffect = ev.dataTransfer.effectAllowed === 'all' ? 'copy' : 'move';
+		switch (ev.dataTransfer.effectAllowed) {
+			case 'all':
+			case 'uninitialized':
+			case 'copy':
+			case 'copyLink':
+			case 'copyMove':
+				ev.dataTransfer.dropEffect = 'copy';
+				break;
+			case 'linkMove':
+			case 'move':
+				ev.dataTransfer.dropEffect = 'move';
+				break;
+			default:
+				ev.dataTransfer.dropEffect = 'none';
+				break;
+		}
 	}
 }
 
@@ -179,8 +194,8 @@ function saveDraft() {
 		updatedAt: new Date(),
 		// eslint-disable-next-line id-denylist
 		data: {
-			text: text,
-			file: file,
+			text,
+			file,
 		},
 	};
 

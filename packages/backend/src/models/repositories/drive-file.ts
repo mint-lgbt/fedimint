@@ -27,9 +27,7 @@ export const DriveFileRepository = db.getRepository(DriveFile).extend({
 
 	getPublicProperties(file: DriveFile): DriveFile['properties'] {
 		if (file.properties.orientation != null) {
-			// TODO
-			//const properties = structuredClone(file.properties);
-			const properties = JSON.parse(JSON.stringify(file.properties));
+			const properties = structuredClone(file.properties);
 			if (file.properties.orientation >= 5) {
 				[properties.width, properties.height] = [properties.height, properties.width];
 			}
@@ -63,50 +61,24 @@ export const DriveFileRepository = db.getRepository(DriveFile).extend({
 		return thumbnail ? (file.thumbnailUrl || (isImage ? (file.webpublicUrl || file.url) : null)) : (file.webpublicUrl || file.url);
 	},
 
-	async calcDriveUsageOf(user: User['id'] | { id: User['id'] }): Promise<number> {
-		const id = typeof user === 'object' ? user.id : user;
-
-		const { sum } = await this
-			.createQueryBuilder('file')
-			.where('file.userId = :id', { id })
-			.andWhere('file.isLink = FALSE')
-			.select('SUM(file.size)', 'sum')
-			.getRawOne();
-
-		return parseInt(sum, 10) || 0;
+	calcDriveUsageOf(id: User['id']): Promise<number> {
+		return db.query('SELECT SUM(size) AS sum FROM drive_file WHERE "userId" = $1 AND NOT "isLink"', [id])
+			.then(res => res[0].sum as number ?? 0);
 	},
 
-	async calcDriveUsageOfHost(host: string): Promise<number> {
-		const { sum } = await this
-			.createQueryBuilder('file')
-			.where('file.userHost = :host', { host: toPuny(host) })
-			.andWhere('file.isLink = FALSE')
-			.select('SUM(file.size)', 'sum')
-			.getRawOne();
-
-		return parseInt(sum, 10) || 0;
+	calcDriveUsageOfHost(host: string): Promise<number> {
+		return db.query('SELECT SUM(size) AS sum FROM drive_file WHERE "userHost" = $1 AND NOT "isLink"', [toPuny(host)])
+			.then(res => res[0].sum as number ?? 0);
 	},
 
-	async calcDriveUsageOfLocal(): Promise<number> {
-		const { sum } = await this
-			.createQueryBuilder('file')
-			.where('file.userHost IS NULL')
-			.andWhere('file.isLink = FALSE')
-			.select('SUM(file.size)', 'sum')
-			.getRawOne();
-
-		return parseInt(sum, 10) || 0;
+	calcDriveUsageOfLocal(): Promise<number> {
+		return db.query('SELECT SUM(size) AS sum FROM drive_file WHERE "userHost" IS NULL AND NOT "isLink"')
+			.then(res => res[0].sum as number ?? 0);
 	},
 
-	async calcDriveUsageOfRemote(): Promise<number> {
-		const { sum } = await this
-			.createQueryBuilder('file')
-			.where('file.userHost IS NOT NULL')
-			.andWhere('file.isLink = FALSE')
-			.select('SUM(file.size)', 'sum')
-			.getRawOne();
-
-		return parseInt(sum, 10) || 0;
+	calcDriveUsageOfRemote(): Promise<number> {
+		return db.query('SELECT SUM(size) AS sum FROM drive_file WHERE "userHost" IS NOT NULL AND NOT "isLink"')
+			.then(res => res[0].sum as number ?? 0);
 	},
 
 	async pack(
@@ -136,9 +108,9 @@ export const DriveFileRepository = db.getRepository(DriveFile).extend({
 			folderId: file.folderId,
 			folder: opts.detail && file.folderId ? DriveFolders.pack(file.folderId, {
 				detail: true,
-			}) : null,
-			userId: opts.withUser ? file.userId : null,
-			user: (opts.withUser && file.userId) ? Users.pack(file.userId) : null,
+			}) : undefined,
+			userId: file.userId,
+			user: (opts.withUser && file.userId) ? Users.pack(file.userId) : undefined,
 		});
 	},
 
@@ -154,26 +126,7 @@ export const DriveFileRepository = db.getRepository(DriveFile).extend({
 		const file = typeof src === 'object' ? src : await this.findOneBy({ id: src });
 		if (file == null) return null;
 
-		return await awaitAll<Packed<'DriveFile'>>({
-			id: file.id,
-			createdAt: file.createdAt.toISOString(),
-			name: file.name,
-			type: file.type,
-			md5: file.md5,
-			size: file.size,
-			isSensitive: file.isSensitive,
-			blurhash: file.blurhash,
-			properties: opts.self ? file.properties : this.getPublicProperties(file),
-			url: opts.self ? file.url : this.getPublicUrl(file, false),
-			thumbnailUrl: this.getPublicUrl(file, true),
-			comment: file.comment,
-			folderId: file.folderId,
-			folder: opts.detail && file.folderId ? DriveFolders.pack(file.folderId, {
-				detail: true,
-			}) : null,
-			userId: opts.withUser ? file.userId : null,
-			user: (opts.withUser && file.userId) ? Users.pack(file.userId) : null,
-		});
+		return await this.pack(file, opts);
 	},
 
 	async packMany(

@@ -10,8 +10,6 @@
 	@media (max-width: 500px) {
 		--margin: var(--marginHalf);
 	}
-
-	//--ad: rgb(255 169 0 / 10%);
 }
 
 ::selection {
@@ -223,32 +221,6 @@ hr {
 	}
 }
 
-._inputs {
-	display: flex;
-	margin: 32px 0;
-
-	&:first-child {
-		margin-top: 8px;
-	}
-
-	&:last-child {
-		margin-bottom: 8px;
-	}
-
-	> * {
-		flex: 1;
-		margin: 0 !important;
-
-		&:not(:first-child) {
-			margin-left: 8px !important;
-		}
-
-		&:not(:last-child) {
-			margin-right: 8px !important;
-		}
-	}
-}
-
 ._panel {
 	background: var(--panel);
 	border-radius: var(--radius);
@@ -315,21 +287,6 @@ hr {
 	}
 }
 
-._borderButton {
-	@extend ._button;
-	display: block;
-	width: 100%;
-	padding: 10px;
-	box-sizing: border-box;
-	text-align: center;
-	border: solid 0.5px var(--divider);
-	border-radius: var(--radius);
-
-	&:active {
-		border-color: var(--accent);
-	}
-}
-
 ._popup {
 	background: var(--popup);
 	border-radius: var(--radius);
@@ -365,12 +322,6 @@ hr {
 	> ._footer {
 		padding: 16px;
 	}
-}
-
-._acrylic {
-	background: var(--acrylicPanel);
-	-webkit-backdrop-filter: var(--blur, blur(15px));
-	backdrop-filter: var(--blur, blur(15px));
 }
 
 ._formBlock {
@@ -439,21 +390,8 @@ hr {
 	}
 }
 
-._keyValue {
-	display: flex;
-
-	> * {
-		flex: 1;
-	}
-}
-
 ._link {
 	color: var(--link);
-}
-
-._caption {
-	font-size: 0.8em;
-	opacity: 0.7;
 }
 
 ._monospace {
@@ -491,61 +429,4 @@ hr {
 	0% { opacity: 1; transform: scale(1); }
 	30% { opacity: 1; transform: scale(1); }
 	90% { opacity: 0; transform: scale(0.5); }
-}
-
-@keyframes tada {
-	from {
-		transform: scale3d(1, 1, 1);
-	}
-
-	10%,
-	20% {
-		transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -3deg);
-	}
-
-	30%,
-	50%,
-	70%,
-	90% {
-		transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, 3deg);
-	}
-
-	40%,
-	60%,
-	80% {
-		transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, -3deg);
-	}
-
-	to {
-		transform: scale3d(1, 1, 1);
-	}
-}
-
-._anime_bounce {
-	will-change: transform;
-  animation: bounce ease 0.7s;
-  animation-iteration-count: 1;
-  transform-origin: 50% 50%;
-}
-._anime_bounce_ready {
-	will-change: transform;
-	transform:  scaleX(0.90) scaleY(0.90) ;
-}
-._anime_bounce_standBy {
-	transition: transform 0.1s ease;
-}
-
-@keyframes bounce{
-  0% {
-    transform:  scaleX(0.90) scaleY(0.90) ;
-  }
-  19% {
-    transform:  scaleX(1.10) scaleY(1.10) ;
-  }
-  48% {
-    transform:  scaleX(0.95) scaleY(0.95) ;
-  }
-  100% {
-    transform:  scaleX(1.00) scaleY(1.00) ;
-  }
 }

@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import got, * as Got from 'got';
 import IPCIDR from 'ip-cidr';
 import PrivateIp from 'private-ip';
+import { SECOND, MINUTE } from '@/const.js';
 import config from '@/config/index.js';
 import Logger from '@/services/logger.js';
 import { httpAgent, httpsAgent, StatusError } from './fetch.js';
@@ -16,9 +17,8 @@ export async function downloadUrl(url: string, path: string): Promise<void> {
 
 	logger.info(`Downloading ${chalk.cyan(url)} ...`);
 
-	const timeout = 30 * 1000;
-	const operationTimeout = 60 * 1000;
-	const maxSize = config.maxFileSize || 262144000;
+	const timeout = 30 * SECOND;
+	const operationTimeout = MINUTE;
 
 	const req = got.stream(url, {
 		headers: {
@@ -52,14 +52,14 @@ export async function downloadUrl(url: string, path: string): Promise<void> {
 		const contentLength = res.headers['content-length'];
 		if (contentLength != null) {
 			const size = Number(contentLength);
-			if (size > maxSize) {
-				logger.warn(`maxSize exceeded (${size} > ${maxSize}) on response`);
+			if (size > config.maxFileSize) {
+				logger.warn(`maxSize exceeded (${size} > ${config.maxFileSize}) on response`);
 				req.destroy();
 			}
 		}
 	}).on('downloadProgress', (progress: Got.Progress) => {
-		if (progress.transferred > maxSize) {
-			logger.warn(`maxSize exceeded (${progress.transferred} > ${maxSize}) on downloadProgress`);
+		if (progress.transferred > config.maxFileSize) {
+			logger.warn(`maxSize exceeded (${progress.transferred} > ${config.maxFileSize}) on downloadProgress`);
 			req.destroy();
 		}
 	});

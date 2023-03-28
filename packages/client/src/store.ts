@@ -1,6 +1,6 @@
 import { markRaw, ref } from 'vue';
-import { Storage } from './pizzax';
-import { Theme } from './scripts/theme';
+import { Storage } from '@/pizzax';
+import { Theme } from '@/scripts/theme';
 
 export const postFormActions = [];
 export const userActions = [];
@@ -20,10 +20,6 @@ export const defaultStore = markRaw(new Storage('base', {
 		default: true,
 	},
 	showFullAcct: {
-		where: 'account',
-		default: false,
-	},
-	rememberNoteVisibility: {
 		where: 'account',
 		default: false,
 	},
@@ -75,14 +71,6 @@ export const defaultStore = markRaw(new Storage('base', {
 			'ui',
 		],
 	},
-	visibility: {
-		where: 'deviceAccount',
-		default: 'public' as 'public' | 'home' | 'followers' | 'specified',
-	},
-	localOnly: {
-		where: 'deviceAccount',
-		default: false,
-	},
 	widgets: {
 		where: 'deviceAccount',
 		default: [] as {
@@ -108,6 +96,14 @@ export const defaultStore = markRaw(new Storage('base', {
 		where: 'device',
 		default: 'quiet' as 'quiet' | 'reload' | 'dialog',
 	},
+	maxCustomEmojiPicker: {
+		where: 'device',
+		default: 10,
+	},
+	maxUnicodeEmojiPicker: {
+		where: 'device',
+		default: 10,
+	},
 	nsfw: {
 		where: 'device',
 		default: 'respect' as 'respect' | 'force' | 'ignore',
@@ -129,10 +125,6 @@ export const defaultStore = markRaw(new Storage('base', {
 		default: false,
 	},
 	disableShowingAnimatedImages: {
-		where: 'device',
-		default: false,
-	},
-	disablePagesScript: {
 		where: 'device',
 		default: false,
 	},
@@ -204,10 +196,6 @@ export const defaultStore = markRaw(new Storage('base', {
 		where: 'device',
 		default: 'sideFull' as 'sideFull' | 'sideIcon' | 'top',
 	},
-	reportError: {
-		where: 'device',
-		default: false,
-	},
 	squareAvatars: {
 		where: 'device',
 		default: false,
@@ -227,10 +215,6 @@ export const defaultStore = markRaw(new Storage('base', {
 	numberOfPageCache: {
 		where: 'device',
 		default: 5,
-	},
-	aiChanMode: {
-		where: 'device',
-		default: false,
 	},
 }));
 

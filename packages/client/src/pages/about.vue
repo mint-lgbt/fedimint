@@ -1,6 +1,6 @@
 <template>
 <MkStickyContainer>
-	<template #header><MkPageHeader v-model:tab="tab" :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader v-model:tab="tab" :tabs="headerTabs"/></template>
 	<MkSpacer v-if="tab === 'overview'" :content-max="600" :margin-min="20">
 		<div class="_formRoot">
 			<div class="_formBlock fwhjspax" :style="{ backgroundImage: `url(${ $instance.bannerUrl })` }">
@@ -19,10 +19,10 @@
 
 			<FormSection>
 				<MkKeyValue class="_formBlock" :copy="version">
-					<template #key>Misskey</template>
+					<template #key>{{ i18n.ts.version }}</template>
 					<template #value>{{ version }}</template>
 				</MkKeyValue>
-				<FormLink to="/about-misskey">{{ i18n.ts.aboutMisskey }}</FormLink>
+				<FormLink to="/about-foundkey">{{ i18n.ts.aboutMisskey }}</FormLink>
 			</FormSection>
 
 			<FormSection>
@@ -45,11 +45,11 @@
 					<FormSplit>
 						<MkKeyValue class="_formBlock">
 							<template #key>{{ i18n.ts.users }}</template>
-							<template #value>{{ number(stats.originalUsersCount) }}</template>
+							<template #value>{{ number(stats?.originalUsersCount) }}</template>
 						</MkKeyValue>
 						<MkKeyValue class="_formBlock">
 							<template #key>{{ i18n.ts.notes }}</template>
-							<template #value>{{ number(stats.originalNotesCount) }}</template>
+							<template #value>{{ number(stats?.originalNotesCount) }}</template>
 						</MkKeyValue>
 					</FormSplit>
 				</FormSection>
@@ -73,15 +73,18 @@
 	<MkSpacer v-else-if="tab === 'federation'" :content-max="1000" :margin-min="20">
 		<XFederation/>
 	</MkSpacer>
-	<MkSpacer v-else-if="tab === 'charts'" :content-max="1000" :margin-min="20">
+	<MkSpacer v-else-if="tab === 'charts'" :content-max="1200" :margin-min="20">
 		<MkInstanceStats :chart-limit="500" :detailed="true"/>
 	</MkSpacer>
 </MkStickyContainer>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
-import { version, instanceName , host } from '@/config';
+import { computed } from 'vue';
+import * as foundkey from 'foundkey-js';
+import XEmojis from './about.emojis.vue';
+import XFederation from '@/components/federation.vue';
+import { version, host } from '@/config';
 import FormLink from '@/components/form/link.vue';
 import FormSection from '@/components/form/section.vue';
 import FormSuspense from '@/components/form/suspense.vue';
@@ -93,30 +96,35 @@ import number from '@/filters/number';
 import { i18n } from '@/i18n';
 import { definePageMetadata } from '@/scripts/page-metadata';
 
+const headerTabs = $computed(() => [{
+	key: 'overview',
+	title: i18n.ts.overview,
+}, {
+	key: 'emojis',
+	title: i18n.ts.customEmojis,
+	icon: 'fas fa-laugh',
+}, {
+	key: 'federation',
+	title: i18n.ts.federation,
+	icon: 'fas fa-globe',
+}, {
+	key: 'charts',
+	title: i18n.ts.charts,
+	icon: 'fas fa-chart-simple',
+}]);
+
 const props = withDefaults(defineProps<{
 	initialTab?: string;
 }>(), {
 	initialTab: 'overview',
 });
 
-let stats = $ref(null);
-let tab = $ref(props.initialTab);
+let stats: foundkey.entities.Stats | null = $ref(null);
+let tab = $ref(headerTabs.some(({ key }) => key === props.initialTab) ? props.initialTab : 'overview');
 
-const initStats = () => os.api('stats', {
-}).then((res) => {
-	stats = res;
-});
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => [{
-	key: 'overview',
-	title: i18n.ts.overview,
-}, {
-	key: 'charts',
-	title: i18n.ts.charts,
-	icon: 'fas fa-chart-bar',
-}]);
+const initStats = async (): Promise<void> => {
+	stats = await os.api('stats', {});
+};
 
 definePageMetadata(computed(() => ({
 	title: i18n.ts.instanceInfo,

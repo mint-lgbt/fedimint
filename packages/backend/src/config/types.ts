@@ -1,5 +1,5 @@
 /**
- * ユーザーが設定する必要のある情報
+ * Configuration options set up by the user
  */
 export type Source = {
 	repository_url?: string;
@@ -19,12 +19,12 @@ export type Source = {
 	redis: {
 		host: string;
 		port: number;
-		family?: number;
+		family?: number | 'dual' | 'ipv4' | 'ipv6';
 		pass: string;
 		db?: number;
 		prefix?: string;
 	};
-	elasticsearch: {
+	elasticsearch?: {
 		host: string;
 		port: number;
 		ssl?: boolean;
@@ -41,13 +41,16 @@ export type Source = {
 
 	maxFileSize?: number;
 
+	maxNoteTextLength?: number;
+
 	accesslog?: string;
 
-	clusterLimit?: number;
+	clusterLimits?: {
+		web?: number;
+		queue?: number;
+	};
 
 	id: string;
-
-	outgoingAddressFamily?: 'ipv4' | 'ipv6' | 'dual';
 
 	deliverJobConcurrency?: number;
 	inboxJobConcurrency?: number;
@@ -56,19 +59,24 @@ export type Source = {
 	deliverJobMaxAttempts?: number;
 	inboxJobMaxAttempts?: number;
 
-	syslog: {
+	syslog?: {
 		host: string;
 		port: number;
 	};
 
 	mediaProxy?: string;
 	proxyRemoteFiles?: boolean;
+	internalStoragePath?: string;
 
-	signToActivityPubGet?: boolean;
+	images?: {
+		info?: string;
+		notFound?: string;
+		error?: string;
+	};
 };
 
 /**
- * Misskeyが自動的に(ユーザーが設定した情報から推論して)設定する情報
+ * Information that FoundKey automatically sets (by inference from information set by the user)
  */
 export type Mixin = {
 	version: string;

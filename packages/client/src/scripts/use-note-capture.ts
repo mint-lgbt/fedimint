@@ -1,11 +1,11 @@
 import { onUnmounted, Ref } from 'vue';
-import * as misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import { stream } from '@/stream';
 import { $i } from '@/account';
 
 export function useNoteCapture(props: {
 	rootEl: Ref<HTMLElement>;
-	note: Ref<misskey.entities.Note>;
+	note: Ref<foundkey.entities.Note>;
 	isDeletedRef: Ref<boolean>;
 }) {
 	const note = props.note;
@@ -60,8 +60,8 @@ export function useNoteCapture(props: {
 					...choices[choice],
 					votes: choices[choice].votes + 1,
 					...($i && (body.userId === $i.id) ? {
-						isVoted: true
-					} : {})
+						isVoted: true,
+					} : {}),
 				};
 
 				note.value.poll.choices = choices;

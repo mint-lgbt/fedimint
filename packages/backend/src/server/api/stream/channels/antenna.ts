@@ -31,6 +31,7 @@ export default class extends Channel {
 				if (isUserRelated(note, this.muting)) return;
 				// 流れてきたNoteがブロックされているユーザーが関わるものだったら無視する
 				if (isUserRelated(note, this.blocking)) return;
+				if (note.renote && this.renoteMuting.has(note.userId)) return;
 
 				this.connection.cacheNote(note);
 

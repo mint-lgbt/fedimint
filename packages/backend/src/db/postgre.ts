@@ -1,11 +1,13 @@
 // https://github.com/typeorm/typeorm/issues/2400
 import pg from 'pg';
+
 pg.types.setTypeParser(20, Number);
 
 import { Logger, DataSource } from 'typeorm';
 import * as highlight from 'cli-highlight';
 import config from '@/config/index.js';
 
+import { SECOND } from '@/const.js';
 import { User } from '@/models/entities/user.js';
 import { DriveFile } from '@/models/entities/drive-file.js';
 import { DriveFolder } from '@/models/entities/drive-folder.js';
@@ -22,6 +24,7 @@ import { Meta } from '@/models/entities/meta.js';
 import { Following } from '@/models/entities/following.js';
 import { Instance } from '@/models/entities/instance.js';
 import { Muting } from '@/models/entities/muting.js';
+import { RenoteMuting } from '@/models/entities/renote-muting.js';
 import { SwSubscription } from '@/models/entities/sw-subscription.js';
 import { Blocking } from '@/models/entities/blocking.js';
 import { UserList } from '@/models/entities/user-list.js';
@@ -47,8 +50,6 @@ import { UserSecurityKey } from '@/models/entities/user-security-key.js';
 import { AttestationChallenge } from '@/models/entities/attestation-challenge.js';
 import { Page } from '@/models/entities/page.js';
 import { PageLike } from '@/models/entities/page-like.js';
-import { GalleryPost } from '@/models/entities/gallery-post.js';
-import { GalleryLike } from '@/models/entities/gallery-like.js';
 import { ModerationLog } from '@/models/entities/moderation-log.js';
 import { UsedUsername } from '@/models/entities/used-username.js';
 import { Announcement } from '@/models/entities/announcement.js';
@@ -57,8 +58,6 @@ import { Clip } from '@/models/entities/clip.js';
 import { ClipNote } from '@/models/entities/clip-note.js';
 import { Antenna } from '@/models/entities/antenna.js';
 import { AntennaNote } from '@/models/entities/antenna-note.js';
-import { PromoNote } from '@/models/entities/promo-note.js';
-import { PromoRead } from '@/models/entities/promo-read.js';
 import { Relay } from '@/models/entities/relay.js';
 import { MutedNote } from '@/models/entities/muted-note.js';
 import { Channel } from '@/models/entities/channel.js';
@@ -70,39 +69,40 @@ import { UserPending } from '@/models/entities/user-pending.js';
 
 import { entities as charts } from '@/services/chart/entities.js';
 import { Webhook } from '@/models/entities/webhook.js';
+import { getRedisOptions } from '@/config/redis.js';
 import { dbLogger } from './logger.js';
 import { redisClient } from './redis.js';
 
 const sqlLogger = dbLogger.createSubLogger('sql', 'gray', false);
 
 class MyCustomLogger implements Logger {
-	private highlight(sql: string) {
+	private highlight(sql: string): string {
 		return highlight.highlight(sql, {
 			language: 'sql', ignoreIllegals: true,
 		});
 	}
 
-	public logQuery(query: string, parameters?: any[]) {
+	public logQuery(query: string): void {
 		sqlLogger.info(this.highlight(query).substring(0, 100));
 	}
 
-	public logQueryError(error: string, query: string, parameters?: any[]) {
+	public logQueryError(error: string, query: string): void {
 		sqlLogger.error(this.highlight(query));
 	}
 
-	public logQuerySlow(time: number, query: string, parameters?: any[]) {
+	public logQuerySlow(time: number, query: string): void {
 		sqlLogger.warn(this.highlight(query));
 	}
 
-	public logSchemaBuild(message: string) {
+	public logSchemaBuild(message: string): void {
 		sqlLogger.info(message);
 	}
 
-	public log(message: string) {
+	public log(message: string): void {
 		sqlLogger.info(message);
 	}
 
-	public logMigration(message: string) {
+	public logMigration(message: string): void {
 		sqlLogger.info(message);
 	}
 }
@@ -131,6 +131,7 @@ export const entities = [
 	Following,
 	FollowRequest,
 	Muting,
+	RenoteMuting,
 	Blocking,
 	Note,
 	NoteFavorite,
@@ -140,8 +141,6 @@ export const entities = [
 	NoteUnread,
 	Page,
 	PageLike,
-	GalleryPost,
-	GalleryLike,
 	DriveFile,
 	DriveFolder,
 	Poll,
@@ -159,8 +158,6 @@ export const entities = [
 	ClipNote,
 	Antenna,
 	AntennaNote,
-	PromoNote,
-	PromoRead,
 	Relay,
 	MutedNote,
 	Channel,
@@ -183,21 +180,14 @@ export const db = new DataSource({
 	password: config.db.pass,
 	database: config.db.db,
 	extra: {
-		statement_timeout: 1000 * 10,
+		statement_timeout: 10 * SECOND,
 		...config.db.extra,
 	},
 	synchronize: process.env.NODE_ENV === 'test',
 	dropSchema: process.env.NODE_ENV === 'test',
 	cache: !config.db.disableCache ? {
 		type: 'ioredis',
-		options: {
-			host: config.redis.host,
-			port: config.redis.port,
-			family: config.redis.family ?? 0,
-			password: config.redis.pass,
-			keyPrefix: `${config.redis.prefix}:query:`,
-			db: config.redis.db || 0,
-		},
+		options: getRedisOptions(`${config.redis.prefix}:query:`),
 	} : false,
 	logging: log,
 	logger: log ? new MyCustomLogger() : undefined,
@@ -242,7 +232,7 @@ export async function resetDb() {
 			if (i === 3) {
 				throw e;
 			} else {
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				await new Promise(resolve => setTimeout(resolve, SECOND));
 				continue;
 			}
 		}

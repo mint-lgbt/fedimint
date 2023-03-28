@@ -1,6 +1,6 @@
-import { Meta } from '@/models/entities/meta.js';
 import { insertModerationLog } from '@/services/insert-moderation-log.js';
-import { db } from '@/db/postgre.js';
+import { fetchMeta, setMeta } from '@/misc/fetch-meta.js';
+import { TranslationService } from '@/models/entities/meta.js';
 import define from '../../define.js';
 
 export const meta = {
@@ -56,17 +56,10 @@ export const paramDef = {
 			type: 'string',
 		} },
 		summalyProxy: { type: 'string', nullable: true },
+		translationService: { type: 'string', nullable: true, enum: [null, ...Object.values(TranslationService)] },
 		deeplAuthKey: { type: 'string', nullable: true },
-		deeplIsPro: { type: 'boolean' },
-		enableTwitterIntegration: { type: 'boolean' },
-		twitterConsumerKey: { type: 'string', nullable: true },
-		twitterConsumerSecret: { type: 'string', nullable: true },
-		enableGithubIntegration: { type: 'boolean' },
-		githubClientId: { type: 'string', nullable: true },
-		githubClientSecret: { type: 'string', nullable: true },
-		enableDiscordIntegration: { type: 'boolean' },
-		discordClientId: { type: 'string', nullable: true },
-		discordClientSecret: { type: 'string', nullable: true },
+		libreTranslateAuthKey: { type: 'string', nullable: true },
+		libreTranslateEndpoint: { type: 'string', nullable: true },
 		enableEmail: { type: 'boolean' },
 		email: { type: 'string', nullable: true },
 		smtpSecure: { type: 'boolean' },
@@ -74,9 +67,6 @@ export const paramDef = {
 		smtpPort: { type: 'integer', nullable: true },
 		smtpUser: { type: 'string', nullable: true },
 		smtpPass: { type: 'string', nullable: true },
-		enableServiceWorker: { type: 'boolean' },
-		swPublicKey: { type: 'string', nullable: true },
-		swPrivateKey: { type: 'string', nullable: true },
 		tosUrl: { type: 'string', nullable: true },
 		useObjectStorage: { type: 'boolean' },
 		objectStorageBaseUrl: { type: 'string', nullable: true },
@@ -231,42 +221,6 @@ export default define(meta, paramDef, async (ps, me) => {
 		set.summalyProxy = ps.summalyProxy;
 	}
 
-	if (ps.enableTwitterIntegration !== undefined) {
-		set.enableTwitterIntegration = ps.enableTwitterIntegration;
-	}
-
-	if (ps.twitterConsumerKey !== undefined) {
-		set.twitterConsumerKey = ps.twitterConsumerKey;
-	}
-
-	if (ps.twitterConsumerSecret !== undefined) {
-		set.twitterConsumerSecret = ps.twitterConsumerSecret;
-	}
-
-	if (ps.enableGithubIntegration !== undefined) {
-		set.enableGithubIntegration = ps.enableGithubIntegration;
-	}
-
-	if (ps.githubClientId !== undefined) {
-		set.githubClientId = ps.githubClientId;
-	}
-
-	if (ps.githubClientSecret !== undefined) {
-		set.githubClientSecret = ps.githubClientSecret;
-	}
-
-	if (ps.enableDiscordIntegration !== undefined) {
-		set.enableDiscordIntegration = ps.enableDiscordIntegration;
-	}
-
-	if (ps.discordClientId !== undefined) {
-		set.discordClientId = ps.discordClientId;
-	}
-
-	if (ps.discordClientSecret !== undefined) {
-		set.discordClientSecret = ps.discordClientSecret;
-	}
-
 	if (ps.enableEmail !== undefined) {
 		set.enableEmail = ps.enableEmail;
 	}
@@ -293,18 +247,6 @@ export default define(meta, paramDef, async (ps, me) => {
 
 	if (ps.smtpPass !== undefined) {
 		set.smtpPass = ps.smtpPass;
-	}
-
-	if (ps.enableServiceWorker !== undefined) {
-		set.enableServiceWorker = ps.enableServiceWorker;
-	}
-
-	if (ps.swPublicKey !== undefined) {
-		set.swPublicKey = ps.swPublicKey;
-	}
-
-	if (ps.swPrivateKey !== undefined) {
-		set.swPrivateKey = ps.swPrivateKey;
 	}
 
 	if (ps.tosUrl !== undefined) {
@@ -363,6 +305,10 @@ export default define(meta, paramDef, async (ps, me) => {
 		set.objectStorageS3ForcePathStyle = ps.objectStorageS3ForcePathStyle;
 	}
 
+	if (ps.translationService !== undefined) {
+		set.translationService = ps.translationService;
+	}
+
 	if (ps.deeplAuthKey !== undefined) {
 		if (ps.deeplAuthKey === '') {
 			set.deeplAuthKey = null;
@@ -371,24 +317,26 @@ export default define(meta, paramDef, async (ps, me) => {
 		}
 	}
 
-	if (ps.deeplIsPro !== undefined) {
-		set.deeplIsPro = ps.deeplIsPro;
+	if (ps.libreTranslateEndpoint !== undefined) {
+		if (ps.libreTranslateEndpoint === '') {
+			set.libreTranslateEndpoint = null;
+		} else {
+			set.libreTranslateEndpoint = ps.libreTranslateEndpoint;
+		}
 	}
 
-	await db.transaction(async transactionalEntityManager => {
-		const metas = await transactionalEntityManager.find(Meta, {
-			order: {
-				id: 'DESC',
-			},
-		});
-
-		const meta = metas[0];
-
-		if (meta) {
-			await transactionalEntityManager.update(Meta, meta.id, set);
+	if (ps.libreTranslateAuthKey !== undefined) {
+		if (ps.libreTranslateAuthKey === '') {
+			set.libreTranslateAuthKey = null;
 		} else {
-			await transactionalEntityManager.save(Meta, set);
+			set.libreTranslateAuthKey = ps.libreTranslateAuthKey;
 		}
+	}
+
+	const meta = await fetchMeta();
+	await setMeta({
+		...meta,
+		...set,
 	});
 
 	insertModerationLog(me, 'updateMeta');

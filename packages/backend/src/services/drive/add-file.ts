@@ -16,6 +16,7 @@ import { IRemoteUser, User } from '@/models/entities/user.js';
 import { driveChart, perUserDriveChart, instanceChart } from '@/services/chart/index.js';
 import { genId } from '@/misc/gen-id.js';
 import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
+import { DriveFolder } from '@/models/entities/drive-folder.js';
 import { deleteFile } from './delete-file.js';
 import { GenerateVideoThumbnail } from './generate-video-thumbnail.js';
 import { driveLogger } from './logger.js';
@@ -153,7 +154,10 @@ async function save(file: DriveFile, path: string, name: string, type: string, h
  * @param type Content-Type for original
  * @param generateWeb Generate webpublic or not
  */
-export async function generateAlts(path: string, type: string, generateWeb: boolean) {
+export async function generateAlts(path: string, type: string, generateWeb: boolean): Promise<{
+	webpublic: IImage | null;
+	thumbnail: IImage | null;
+}> {
 	if (type.startsWith('video/')) {
 		try {
 			const thumbnail = await GenerateVideoThumbnail(path);
@@ -256,9 +260,12 @@ export async function generateAlts(path: string, type: string, generateWeb: bool
 /**
  * Upload to ObjectStorage
  */
-async function upload(key: string, stream: fs.ReadStream | Buffer, type: string, filename?: string) {
-	if (type === 'image/apng') type = 'image/png';
-	if (!FILE_TYPE_BROWSERSAFE.includes(type)) type = 'application/octet-stream';
+async function upload(key: string, stream: fs.ReadStream | Buffer, _type: string, filename?: string): Promise<void> {
+	const type = (_type === 'image/apng')
+		? 'image/png'
+		: (FILE_TYPE_BROWSERSAFE.includes(_type))
+			? _type
+			: 'application/octet-stream';
 
 	const meta = await fetchMeta();
 
@@ -276,17 +283,17 @@ async function upload(key: string, stream: fs.ReadStream | Buffer, type: string,
 	const s3 = getS3(meta);
 
 	const upload = s3.upload(params, {
-		partSize: s3.endpoint?.hostname === 'storage.googleapis.com' ? 500 * 1024 * 1024 : 8 * 1024 * 1024,
+		partSize: s3.endpoint.hostname === 'storage.googleapis.com' ? 500 * 1024 * 1024 : 8 * 1024 * 1024,
 	});
 
 	const result = await upload.promise();
 	if (result) logger.debug(`Uploaded: ${result.Bucket}/${result.Key} => ${result.Location}`);
 }
 
-async function deleteOldFile(user: IRemoteUser) {
+async function deleteOldFile(user: IRemoteUser): Promise<void> {
 	const q = DriveFiles.createQueryBuilder('file')
 		.where('file.userId = :userId', { userId: user.id })
-		.andWhere('file.isLink = FALSE');
+		.andWhere('NOT file.isLink');
 
 	if (user.avatarId) {
 		q.andWhere('file.id != :avatarId', { avatarId: user.avatarId });
@@ -342,7 +349,7 @@ export async function addFile({
 	isLink = false,
 	url = null,
 	uri = null,
-	sensitive = null
+	sensitive = null,
 }: AddFileArgs): Promise<DriveFile> {
 	const info = await getFileInfo(path);
 	logger.info(`${JSON.stringify(info)}`);
@@ -365,7 +372,7 @@ export async function addFile({
 
 	//#region Check drive usage
 	if (user && !isLink) {
-		const usage = await DriveFiles.calcDriveUsageOf(user);
+		const usage = await DriveFiles.calcDriveUsageOf(user.id);
 
 		const instance = await fetchMeta();
 		const driveCapacity = 1024 * 1024 * (Users.isLocalUser(user) ? instance.localDriveCapacityMb : instance.remoteDriveCapacityMb);
@@ -377,14 +384,14 @@ export async function addFile({
 			if (Users.isLocalUser(user)) {
 				throw new Error('no-free-space');
 			} else {
-				// (アバターまたはバナーを含まず)最も古いファイルを削除する
+				// delete oldest file (excluding banner and avatar)
 				deleteOldFile(await Users.findOneByOrFail({ id: user.id }) as IRemoteUser);
 			}
 		}
 	}
 	//#endregion
 
-	const fetchFolder = async () => {
+	const fetchFolder = async (): Promise<DriveFolder | null> => {
 		if (!folderId) {
 			return null;
 		}
@@ -422,16 +429,15 @@ export async function addFile({
 	file.createdAt = new Date();
 	file.userId = user ? user.id : null;
 	file.userHost = user ? user.host : null;
-	file.folderId = folder !== null ? folder.id : null;
+	file.folderId = folder?.id ?? null;
 	file.comment = comment;
 	file.properties = properties;
 	file.blurhash = info.blurhash || null;
 	file.isLink = isLink;
 	file.isSensitive = user
-		? Users.isLocalUser(user) && profile!.alwaysMarkNsfw ? true :
-			(sensitive !== null && sensitive !== undefined)
-				? sensitive
-				: false
+		? Users.isLocalUser(user) && profile!.alwaysMarkNsfw
+			? true
+			: sensitive ?? false
 		: false;
 
 	if (url !== null) {

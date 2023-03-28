@@ -1,8 +1,6 @@
 .autogen
-.github
-.travis
-.vscode
 .config
+.woodpecker
 Dockerfile
 build/
 built/
@@ -12,4 +10,3 @@ elasticsearch/
 node_modules/
 redis/
 files/
-misskey-assets/

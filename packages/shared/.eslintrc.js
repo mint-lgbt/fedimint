@@ -22,7 +22,7 @@ module.exports = {
 		'eol-last': ['error', 'always'],
 		'semi': ['error', 'always'],
 		'semi-spacing': ['error', { 'before': false, 'after': true }],
-		'quotes': ['error', 'single', { 'avoidEscape': true }],
+		'quotes': ['error', 'single', { 'avoidEscape': true, 'allowTemplateLiterals': true }],
 		'comma-dangle': ['warn', 'always-multiline'],
 		'keyword-spacing': ['error', {
 			'before': true,
@@ -68,7 +68,7 @@ module.exports = {
 		'@typescript-eslint/no-inferrable-types': ['warn'],
 		'@typescript-eslint/no-empty-function': ['off'],
 		'@typescript-eslint/no-non-null-assertion': ['warn'],
-		'@typescript-eslint/explicit-function-return-type': ['warn'],
+		'@typescript-eslint/explicit-function-return-type': ['warn', { allowExpressions: true }],
 		'@typescript-eslint/no-misused-promises': ['error', {
 			'checksVoidReturn': false,
 		}],

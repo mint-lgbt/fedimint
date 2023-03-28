@@ -1,41 +1,34 @@
 <template>
-<button class="kpoogebi _button"
+<button
+	class="kpoogebi _button"
 	:class="{ wait, active: isFollowing || hasPendingFollowRequestFromYou, full, large }"
 	:disabled="wait"
 	@click="onClick"
 >
-	<template v-if="!wait">
-		<template v-if="hasPendingFollowRequestFromYou && user.isLocked">
-			<span v-if="full">{{ i18n.ts.followRequestPending }}</span><i class="fas fa-hourglass-half"></i>
-		</template>
-		<template v-else-if="hasPendingFollowRequestFromYou && !user.isLocked"> <!-- つまりリモートフォローの場合。 -->
-			<span v-if="full">{{ i18n.ts.processing }}</span><i class="fas fa-spinner fa-pulse"></i>
-		</template>
-		<template v-else-if="isFollowing">
-			<span v-if="full">{{ i18n.ts.unfollow }}</span><i class="fas fa-minus"></i>
-		</template>
-		<template v-else-if="!isFollowing && user.isLocked">
-			<span v-if="full">{{ i18n.ts.followRequest }}</span><i class="fas fa-plus"></i>
-		</template>
-		<template v-else-if="!isFollowing && !user.isLocked">
-			<span v-if="full">{{ i18n.ts.follow }}</span><i class="fas fa-plus"></i>
-		</template>
+	<template v-if="wait">
+		<span v-if="full">{{ i18n.ts.processing }}</span><i class="fas fa-spinner fa-pulse fa-fw"></i>
+	</template>
+	<template v-else-if="hasPendingFollowRequestFromYou">
+		<span v-if="full">{{ i18n.ts.followRequestPending }}</span><i class="fas fa-hourglass-half"></i>
+	</template>
+	<template v-else-if="isFollowing">
+		<span v-if="full">{{ i18n.ts.unfollow }}</span><i class="fas fa-minus"></i>
 	</template>
 	<template v-else>
-		<span v-if="full">{{ i18n.ts.processing }}</span><i class="fas fa-spinner fa-pulse fa-fw"></i>
+		<span v-if="full">{{ user.isLocked ? i18n.ts.followRequest : i18n.ts.follow }}</span><i class="fas fa-plus"></i>
 	</template>
 </button>
 </template>
 
 <script lang="ts" setup>
 import { onBeforeUnmount, onMounted } from 'vue';
-import * as Misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
 import * as os from '@/os';
 import { stream } from '@/stream';
 import { i18n } from '@/i18n';
 
 const props = withDefaults(defineProps<{
-	user: Misskey.entities.UserDetailed,
+	user: foundkey.entities.UserDetailed,
 	full?: boolean,
 	large?: boolean,
 }>(), {
@@ -50,12 +43,12 @@ const connection = stream.useChannel('main');
 
 if (props.user.isFollowing == null) {
 	os.api('users/show', {
-		userId: props.user.id
+		userId: props.user.id,
 	})
 	.then(onFollowChange);
 }
 
-function onFollowChange(user: Misskey.entities.UserDetailed) {
+function onFollowChange(user: foundkey.entities.UserDetailed) {
 	if (user.id === props.user.id) {
 		isFollowing = user.isFollowing;
 		hasPendingFollowRequestFromYou = user.hasPendingFollowRequestFromYou;
@@ -75,17 +68,17 @@ async function onClick() {
 			if (canceled) return;
 
 			await os.api('following/delete', {
-				userId: props.user.id
+				userId: props.user.id,
 			});
 		} else {
 			if (hasPendingFollowRequestFromYou) {
 				await os.api('following/requests/cancel', {
-					userId: props.user.id
+					userId: props.user.id,
 				});
 				hasPendingFollowRequestFromYou = false;
 			} else {
 				await os.api('following/create', {
-					userId: props.user.id
+					userId: props.user.id,
 				});
 				hasPendingFollowRequestFromYou = true;
 			}

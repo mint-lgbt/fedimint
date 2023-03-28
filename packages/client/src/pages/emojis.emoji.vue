@@ -9,7 +9,6 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import * as os from '@/os';
 import copyToClipboard from '@/scripts/copy-to-clipboard';
 import { i18n } from '@/i18n';
@@ -28,7 +27,7 @@ function menu(ev) {
 		action: () => {
 			copyToClipboard(`:${props.emoji.name}:`);
 			os.success();
-		}
+		},
 	}], ev.currentTarget ?? ev.target);
 }
 </script>

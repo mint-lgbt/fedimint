@@ -1,7 +1,9 @@
----
 _lang_: "Català"
 headlineMisskey: "Una xarxa connectada per notes"
-introMisskey: "Benvingut! Misskey és un servei de microblogging descentralitzat de codi obert.\nCrea \"notes\" per compartir els teus pensaments amb tots els que t'envolten. 📡\nAmb \"reaccions\", també pots expressar ràpidament els teus sentiments sobre les notes de tothom. 👍\nExplorem un món nou! 🚀"
+introMisskey: "Benvingut! FoundKey és un servei de microblogging descentralitzat de\
+  \ codi obert.\nCrea \"notes\" per compartir els teus pensaments amb tots els que\
+  \ t'envolten. \U0001F4E1\nAmb \"reaccions\", també pots expressar ràpidament els\
+  \ teus sentiments sobre les notes de tothom. \U0001F44D\nExplorem un món nou! \U0001F680"
 monthAndDay: "{day}/{month}"
 search: "Cercar"
 notifications: "Notificacions"
@@ -12,7 +14,6 @@ fetchingAsApObject: "Cercant en el Fediverse..."
 ok: "OK"
 gotIt: "Ho he entès!"
 cancel: "Cancel·lar"
-enterUsername: "Introdueix el teu nom d'usuari"
 renotedBy: "Resignat per {usuari}"
 noNotes: "Cap nota"
 noNotifications: "Cap notificació"
@@ -28,27 +29,23 @@ login: "Iniciar sessió"
 loggingIn: "Identificant-se"
 logout: "Tancar la sessió"
 signup: "Registrar-se"
-uploading: "Pujant..."
 save: "Desar"
 users: "Usuaris"
 addUser: "Afegir un usuari"
 favorite: "Afegir a preferits"
 favorites: "Favorits"
 unfavorite: "Eliminar dels preferits"
-favorited: "Afegit als preferits."
-alreadyFavorited: "Ja s'ha afegit als preferits."
-cantFavorite: "No s'ha pogut afegir als preferits."
 pin: "Fixar al perfil"
 unpin: "Para de fixar del perfil"
 copyContent: "Copiar el contingut"
 copyLink: "Copiar l'enllaç"
 delete: "Eliminar"
 deleteAndEdit: "Esborrar i editar"
-deleteAndEditConfirm: "Estàs segur que vols suprimir aquesta nota i editar-la? Perdràs totes les reaccions, notes i respostes."
+deleteAndEditConfirm: "Estàs segur que vols suprimir aquesta nota i editar-la? Perdràs\
+  \ totes les reaccions, notes i respostes."
 addToList: "Afegir a una llista"
 sendMessage: "Enviar un missatge"
 copyUsername: "Copiar nom d'usuari"
-searchUser: "Cercar usuaris"
 reply: "Respondre"
 loadMore: "Carregar més"
 showMore: "Veure més"
@@ -63,12 +60,13 @@ import: "Importar"
 export: "Exportar"
 files: "Fitxers"
 download: "Baixar"
-driveFileDeleteConfirm: "Estàs segur que vols suprimir el fitxer \"{name}\"? Les notes associades a aquest fitxer adjunt també se suprimiran."
+driveFileDeleteConfirm: "Estàs segur que vols suprimir el fitxer \"{name}\"? Les notes\
+  \ associades a aquest fitxer adjunt també se suprimiran."
 unfollowConfirm: "Estàs segur que vols deixar de seguir {name}?"
-exportRequested: "Has sol·licitat una exportació. Això pot trigar una estona. S'afegirà a la teva unitat un cop completat."
+exportRequested: "Has sol·licitat una exportació. Això pot trigar una estona. S'afegirà\
+  \ a la teva unitat un cop completat."
 importRequested: "Has sol·licitat una importació. Això pot trigar una estona."
 lists: "Llistes"
-noLists: "No tens cap llista"
 note: "Nota"
 notes: "Notes"
 following: "Seguint"
@@ -80,9 +78,12 @@ error: "Error"
 somethingHappened: "S'ha produït un error"
 retry: "Torna-ho a intentar"
 pageLoadError: "S'ha produït un error en carregar la pàgina"
-pageLoadErrorDescription: "Això normalment es deu a errors de xarxa o a la memòria cau del navegador. Prova d'esborrar la memòria cau i torna-ho a provar després d'esperar una estona."
+pageLoadErrorDescription: "Això normalment es deu a errors de xarxa o a la memòria\
+  \ cau del navegador. Prova d'esborrar la memòria cau i torna-ho a provar després\
+  \ d'esperar una estona."
 serverIsDead: "Aquest servidor no respon. Espera una estona i torna-ho a provar."
-youShouldUpgradeClient: "Per veure aquesta pàgina, actualitzeu-la per actualitzar el vostre client."
+youShouldUpgradeClient: "Per veure aquesta pàgina, actualitzeu-la per actualitzar\
+  \ el vostre client."
 enterListName: "Introdueix un nom per a la llista"
 privacy: "Privadesa"
 makeFollowManuallyApprove: "Les sol·licituds de seguiment requereixen aprovació"
@@ -92,29 +93,21 @@ followRequest: "Enviar la sol·licitud de seguiment"
 followRequests: "Sol·licituds de seguiment"
 unfollow: "Deixar de seguir"
 followRequestPending: "Sol·licituds de seguiment pendents"
-enterEmoji: "Introduir un emoji"
 renote: "Renotar"
 unrenote: "Anul·lar renota"
-renoted: "Renotat."
-cantRenote: "Aquesta publicació no pot ser renotada."
-cantReRenote: "Impossible renotar una renota."
 quote: "Citar"
 pinnedNote: "Nota fixada"
-pinned: "Fixar al perfil"
 you: "Tu"
 clickToShow: "Fes clic per mostrar"
 sensitive: "NSFW"
 add: "Afegir"
 reaction: "Reaccions"
-reactionSetting: "Reaccions a mostrar al selector de reaccions"
-reactionSettingDescription2: "Arrossega per reordenar, fes clic per suprimir, prem \"+\" per afegir."
-rememberNoteVisibility: "Recorda la configuració de visibilitat de les notes"
+reactionSettingDescription2: "Arrossega per reordenar, fes clic per suprimir, prem\
+  \ \"+\" per afegir."
 attachCancel: "Eliminar el fitxer adjunt"
 markAsSensitive: "Marcar com a NSFW"
-instances: "Instàncies"
 remove: "Eliminar"
 nsfw: "NSFW"
-pinnedNotes: "Nota fixada"
 userList: "Llistes"
 smtpUser: "Nom d'usuari"
 smtpPass: "Contrasenya"
@@ -126,10 +119,7 @@ _mfm:
   mention: "Menció"
   quote: "Citar"
   search: "Cercar"
-_theme:
-  keys:
-    mention: "Menció"
-    renote: "Renotar"
+_theme: {}
 _sfx:
   note: "Notes"
   notification: "Notificacions"
@@ -147,25 +137,6 @@ _profile:
 _exportOrImport:
   followingList: "Seguint"
   userLists: "Llistes"
-_pages:
-  script:
-    categories:
-      list: "Llistes"
-    blocks:
-      _join:
-        arg1: "Llistes"
-      _randomPick:
-        arg1: "Llistes"
-      _dailyRandomPick:
-        arg1: "Llistes"
-      _seedRandomPick:
-        arg2: "Llistes"
-      _pick:
-        arg1: "Llistes"
-      _listLen:
-        arg1: "Llistes"
-    types:
-      array: "Llistes"
 _notification:
   youWereFollowed: "t'ha seguit"
   _types:
@@ -183,3 +154,5 @@ _deck:
     tl: "Línia de temps"
     list: "Llistes"
     mentions: "Mencions"
+_services: {}
+_postForm: {}

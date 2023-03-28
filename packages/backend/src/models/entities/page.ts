@@ -57,7 +57,7 @@ export class Page {
 	})
 	public userId: User['id'];
 
-	@ManyToOne(type => User, {
+	@ManyToOne(() => User, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()
@@ -69,27 +69,16 @@ export class Page {
 	})
 	public eyeCatchingImageId: DriveFile['id'] | null;
 
-	@ManyToOne(type => DriveFile, {
+	@ManyToOne(() => DriveFile, {
 		onDelete: 'CASCADE',
 	})
 	@JoinColumn()
 	public eyeCatchingImage: DriveFile | null;
 
-	@Column('jsonb', {
-		default: [],
-	})
-	public content: Record<string, any>[];
-
-	@Column('jsonb', {
-		default: [],
-	})
-	public variables: Record<string, any>[];
-
-	@Column('varchar', {
-		length: 16384,
+	@Column('text', {
 		default: '',
 	})
-	public script: string;
+	public text: string;
 
 	/**
 	 * public ... 公開

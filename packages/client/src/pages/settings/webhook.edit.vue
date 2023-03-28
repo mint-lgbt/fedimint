@@ -28,20 +28,23 @@
 	<FormSwitch v-model="active" class="_formBlock">Active</FormSwitch>
 
 	<div class="_formBlock" style="display: flex; gap: var(--margin); flex-wrap: wrap;">
-		<FormButton primary inline @click="save"><i class="fas fa-check"></i> {{ i18n.ts.save }}</FormButton>
+		<MkButton primary inline @click="save"><i class="fas fa-check"></i> {{ i18n.ts.save }}</MkButton>
+		<MkButton danger inline @click="del"><i class="fas fa-trash-alt"></i> {{ i18n.ts.delete }}</MkButton>
 	</div>
 </div>
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import FormInput from '@/components/form/input.vue';
 import FormSection from '@/components/form/section.vue';
 import FormSwitch from '@/components/form/switch.vue';
-import FormButton from '@/components/ui/button.vue';
+import MkButton from '@/components/ui/button.vue';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
 import { definePageMetadata } from '@/scripts/page-metadata';
+import { useRouter } from '@/router';
+
+const router = useRouter();
 
 const webhook = await os.api('i/webhooks/show', {
 	webhookId: new URLSearchParams(window.location.search).get('id'),
@@ -70,18 +73,29 @@ async function save(): Promise<void> {
 	if (event_reaction) events.push('reaction');
 	if (event_mention) events.push('mention');
 
-	os.apiWithDialog('i/webhooks/update', {
+	await os.apiWithDialog('i/webhooks/update', {
+		webhookId: webhook.id,
 		name,
 		url,
 		secret,
 		on: events,
 		active,
 	});
+
+	router.push('/settings/webhook');
 }
 
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
+async function del(): Promise<void> {
+	const { canceled } = await os.confirm({
+		type: 'warning',
+		text: i18n.ts.deleteConfirm,
+	});
+	if (canceled) return;
+	await os.apiWithDialog('i/webhooks/delete', {
+		webhookId: webhook.id,
+	});
+	router.push('/settings/webhook');
+}
 
 definePageMetadata({
 	title: 'Edit webhook',

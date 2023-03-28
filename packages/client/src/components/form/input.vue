@@ -17,6 +17,7 @@
 			:spellcheck="spellcheck"
 			:step="step"
 			:list="id"
+			:maxlength="max"
 			@focus="focused = true"
 			@blur="focused = false"
 			@keydown="onKeydown($event)"
@@ -34,7 +35,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, onUnmounted, nextTick, ref, watch, computed, toRefs } from 'vue';
+import { onMounted, nextTick, ref, watch, toRefs } from 'vue';
 import { debounce } from 'throttle-debounce';
 import MkButton from '@/components/ui/button.vue';
 import { useInterval } from '@/scripts/use-interval';
@@ -58,6 +59,7 @@ const props = defineProps<{
 	manualSave?: boolean;
 	small?: boolean;
 	large?: boolean;
+	max?: number;
 }>();
 
 const emit = defineEmits<{
@@ -73,7 +75,6 @@ const id = Math.random().toString(); // TODO: uuid?
 const focused = ref(false);
 const changed = ref(false);
 const invalid = ref(false);
-const filled = computed(() => v.value !== '' && v.value != null);
 const inputEl = ref<HTMLElement>();
 const prefixEl = ref<HTMLElement>();
 const suffixEl = ref<HTMLElement>();
@@ -110,7 +111,7 @@ watch(modelValue, newValue => {
 	v.value = newValue;
 });
 
-watch(v, newValue => {
+watch(v, () => {
 	if (!props.manualSave) {
 		if (props.debounce) {
 			debouncedUpdated();

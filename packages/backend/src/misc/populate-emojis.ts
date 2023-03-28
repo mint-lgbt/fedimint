@@ -4,14 +4,27 @@ import { Emojis } from '@/models/index.js';
 import { Emoji } from '@/models/entities/emoji.js';
 import { Note } from '@/models/entities/note.js';
 import { query } from '@/prelude/url.js';
+import { HOUR } from '@/const.js';
 import { Cache } from './cache.js';
 import { isSelfHost, toPunyNullable } from './convert-host.js';
 import { decodeReaction } from './reaction-lib.js';
 
-const cache = new Cache<Emoji | null>(1000 * 60 * 60 * 12);
+/**
+ * composite cache key: `${host ?? ''}:${name}`
+ */
+const cache = new Cache<Emoji | null>(
+	12 * HOUR,
+	async (key) => {
+		const [host, name] = key.split(':');
+		return (await Emojis.findOneBy({
+			name,
+			host: host || IsNull(),
+		})) || null;
+	},
+);
 
 /**
- * 添付用絵文字情報
+ * Information needed to attach in ActivityPub
  */
 type PopulatedEmoji = {
 	name: string;
@@ -36,28 +49,22 @@ function parseEmojiStr(emojiName: string, noteUserHost: string | null) {
 
 	const name = match[1];
 
-	// ホスト正規化
 	const host = toPunyNullable(normalizeHost(match[2], noteUserHost));
 
 	return { name, host };
 }
 
 /**
- * 添付用絵文字情報を解決する
- * @param emojiName ノートやユーザープロフィールに添付された、またはリアクションのカスタム絵文字名 (:は含めない, リアクションでローカルホストの場合は@.を付ける (これはdecodeReactionで可能))
- * @param noteUserHost ノートやユーザープロフィールの所有者のホスト
- * @returns 絵文字情報, nullは未マッチを意味する
+ * Resolve emoji information from ActivityPub attachment.
+ * @param emojiName custom emoji names attached to notes, user profiles or in rections. Colons should not be included. Localhost is denote by @. (see also `decodeReaction`)
+ * @param noteUserHost host that the content is from, to default to
+ * @returns emoji information. `null` means not found.
  */
 export async function populateEmoji(emojiName: string, noteUserHost: string | null): Promise<PopulatedEmoji | null> {
 	const { name, host } = parseEmojiStr(emojiName, noteUserHost);
 	if (name == null) return null;
 
-	const queryOrNull = async () => (await Emojis.findOneBy({
-		name,
-		host: host ?? IsNull(),
-	})) || null;
-
-	const emoji = await cache.fetch(`${name} ${host}`, queryOrNull);
+	const emoji = await cache.fetch(`${host ?? ''}:${name}`);
 
 	if (emoji == null) return null;
 
@@ -72,7 +79,7 @@ export async function populateEmoji(emojiName: string, noteUserHost: string | nu
 }
 
 /**
- * 複数の添付用絵文字情報を解決する (キャシュ付き, 存在しないものは結果から除外される)
+ * Retrieve list of emojis from the cache. Uncached emoji are dropped.
  */
 export async function populateEmojis(emojiNames: string[], noteUserHost: string | null): Promise<PopulatedEmoji[]> {
 	const emojis = await Promise.all(emojiNames.map(x => populateEmoji(x, noteUserHost)));
@@ -103,11 +110,20 @@ export function aggregateNoteEmojis(notes: Note[]) {
 }
 
 /**
- * 与えられた絵文字のリストをデータベースから取得し、キャッシュに追加します
+ * Query list of emojis in bulk and add them to the cache.
  */
 export async function prefetchEmojis(emojis: { name: string; host: string | null; }[]): Promise<void> {
-	const notCachedEmojis = emojis.filter(emoji => cache.get(`${emoji.name} ${emoji.host}`) == null);
+	const notCachedEmojis = emojis.filter(emoji => {
+		// check if the cache has this emoji
+		return cache.get(`${emoji.host ?? ''}:${emoji.name}`) == null;
+	});
+
+	// check if there even are any uncached emoji to handle
+	if (notCachedEmojis.length === 0) return;
+
+	// query all uncached emoji
 	const emojisQuery: any[] = [];
+	// group by hosts to try to reduce query size
 	const hosts = new Set(notCachedEmojis.map(e => e.host));
 	for (const host of hosts) {
 		emojisQuery.push({
@@ -115,11 +131,14 @@ export async function prefetchEmojis(emojis: { name: string; host: string | null
 			host: host ?? IsNull(),
 		});
 	}
-	const _emojis = emojisQuery.length > 0 ? await Emojis.find({
+
+	await Emojis.find({
 		where: emojisQuery,
 		select: ['name', 'host', 'originalUrl', 'publicUrl'],
-	}) : [];
-	for (const emoji of _emojis) {
-		cache.set(`${emoji.name} ${emoji.host}`, emoji);
-	}
+	}).then(emojis => {
+		// store all emojis into the cache
+		emojis.forEach(emoji => {
+			cache.set(`${emoji.host ?? ''}:${emoji.name}`, emoji);
+		});
+	});
 }

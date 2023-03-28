@@ -1,4 +1,4 @@
-import readNote from '@/services/note/read.js';
+import { readNote } from '@/services/note/read.js';
 import { Antennas, Notes, AntennaNotes } from '@/models/index.js';
 import { makePaginationQuery } from '../../common/make-pagination-query.js';
 import { generateVisibilityQuery } from '../../common/generate-visibility-query.js';
@@ -14,13 +14,7 @@ export const meta = {
 
 	kind: 'read:account',
 
-	errors: {
-		noSuchAntenna: {
-			message: 'No such antenna.',
-			code: 'NO_SUCH_ANTENNA',
-			id: '850926e0-fd3b-49b6-b69a-b28a5dbd82fe',
-		},
-	},
+	errors: ['NO_SUCH_ANTENNA'],
 
 	res: {
 		type: 'array',
@@ -53,12 +47,10 @@ export default define(meta, paramDef, async (ps, user) => {
 		userId: user.id,
 	});
 
-	if (antenna == null) {
-		throw new ApiError(meta.errors.noSuchAntenna);
-	}
+	if (antenna == null) throw new ApiError('NO_SUCH_ANTENNA');
 
 	const query = makePaginationQuery(Notes.createQueryBuilder('note'),
-			ps.sinceId, ps.untilId, ps.sinceDate, ps.untilDate)
+		ps.sinceId, ps.untilId, ps.sinceDate, ps.untilDate)
 		.innerJoin(AntennaNotes.metadata.targetName, 'antennaNote', 'antennaNote.noteId = note.id')
 		.innerJoinAndSelect('note.user', 'user')
 		.leftJoinAndSelect('user.avatar', 'avatar')

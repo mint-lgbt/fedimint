@@ -1,6 +1,5 @@
-import { defineAsyncComponent, Ref, inject } from 'vue';
-import * as misskey from 'misskey-js';
-import { pleaseLogin } from './please-login';
+import { defineAsyncComponent, Ref } from 'vue';
+import * as foundkey from 'foundkey-js';
 import { $i } from '@/account';
 import { i18n } from '@/i18n';
 import { instance } from '@/instance';
@@ -10,21 +9,16 @@ import { url } from '@/config';
 import { noteActions } from '@/store';
 
 export function getNoteMenu(props: {
-	note: misskey.entities.Note;
+	note: foundkey.entities.Note;
 	menuButton: Ref<HTMLElement>;
 	translation: Ref<any>;
 	translating: Ref<boolean>;
 	isDeleted: Ref<boolean>;
-	currentClipPage?: Ref<misskey.entities.Clip>;
+	currentClipPage?: Ref<foundkey.entities.Clip>;
 }) {
-	const isRenote = (
-		props.note.renote != null &&
-		props.note.text == null &&
-		props.note.fileIds.length === 0 &&
-		props.note.poll == null
-	);
-
-	const appearNote = isRenote ? props.note.renote as misskey.entities.Note : props.note;
+	const appearNote = foundkey.entities.isPureRenote(props.note)
+		? props.note.renote as foundkey.entities.Note
+		: props.note;
 
 	function del(): void {
 		os.confirm({
@@ -66,8 +60,32 @@ export function getNoteMenu(props: {
 		});
 	}
 
-	function toggleThreadMute(mute: boolean): void {
-		os.apiWithDialog(mute ? 'notes/thread-muting/create' : 'notes/thread-muting/delete', {
+	function muteThread(): void {
+		// show global settings by default
+		const includingTypes = foundkey.notificationTypes.filter(x => !$i.mutingNotificationTypes.includes(x));
+		os.popup(defineAsyncComponent(() => import('@/components/notification-setting-window.vue')), {
+			includingTypes,
+			showGlobalToggle: false,
+			message: i18n.ts.threadMuteNotificationsDesc,
+			notificationTypes: foundkey.noteNotificationTypes,
+		}, {
+			done: async (res) => {
+				const { includingTypes: value } = res;
+				let mutingNotificationTypes: string[] | undefined;
+				if (value != null) {
+					mutingNotificationTypes = foundkey.noteNotificationTypes.filter(x => !value.includes(x));
+				}
+
+				await os.apiWithDialog('notes/thread-muting/create', {
+					noteId: appearNote.id,
+					mutingNotificationTypes,
+				});
+			},
+		}, 'closed');
+	}
+
+	function unmuteThread(): void {
+		os.apiWithDialog('notes/thread-muting/delete', {
 			noteId: appearNote.id,
 		});
 	}
@@ -158,22 +176,9 @@ export function getNoteMenu(props: {
 		props.isDeleted.value = true;
 	}
 
-	async function promote(): Promise<void> {
-		const { canceled, result: days } = await os.inputNumber({
-			title: i18n.ts.numberOfDays,
-		});
-
-		if (canceled) return;
-
-		os.apiWithDialog('admin/promo/create', {
-			noteId: appearNote.id,
-			expiresAt: Date.now() + (86400000 * days),
-		});
-	}
-
 	function share(): void {
 		navigator.share({
-			title: i18n.t('noteOf', { user: appearNote.user.name }),
+			title: i18n.t('noteOf', { user: appearNote.user.name || appearNote.user.username }),
 			text: appearNote.text,
 			url: `${url}/notes/${appearNote.id}`,
 		});
@@ -182,9 +187,17 @@ export function getNoteMenu(props: {
 	async function translate(): Promise<void> {
 		if (props.translation.value != null) return;
 		props.translating.value = true;
+
+		let targetLang = localStorage.getItem('lang') || navigator.language;
+		targetLang = targetLang.toUpperCase();
+		if (!['EN-GB', 'EN-US', 'PT-BR', 'PT-PT'].includes(targetLang)) {
+			// only the language code without country code is allowed
+			targetLang = targetLang.split('-', 1)[0];
+		}
+
 		const res = await os.api('notes/translate', {
 			noteId: appearNote.id,
-			targetLang: localStorage.getItem('lang') || navigator.language,
+			targetLang,
 		});
 		props.translating.value = false;
 		props.translation.value = res;
@@ -257,11 +270,11 @@ export function getNoteMenu(props: {
 			statePromise.then(state => state.isMutedThread ? {
 				icon: 'fas fa-comment-slash',
 				text: i18n.ts.unmuteThread,
-				action: () => toggleThreadMute(false),
+				action: () => unmuteThread(),
 			} : {
 				icon: 'fas fa-comment-slash',
 				text: i18n.ts.muteThread,
-				action: () => toggleThreadMute(true),
+				action: () => muteThread(),
 			}),
 			appearNote.userId === $i.id ? ($i.pinnedNoteIds || []).includes(appearNote.id) ? {
 				icon: 'fas fa-thumbtack',
@@ -272,16 +285,6 @@ export function getNoteMenu(props: {
 				text: i18n.ts.pin,
 				action: () => togglePin(true),
 			} : undefined,
-			/*
-		...($i.isModerator || $i.isAdmin ? [
-			null,
-			{
-				icon: 'fas fa-bullhorn',
-				text: i18n.ts.promote,
-				action: promote
-			}]
-			: []
-		),*/
 			...(appearNote.userId !== $i.id ? [
 				null,
 				{
@@ -291,9 +294,9 @@ export function getNoteMenu(props: {
 						const u = appearNote.url || appearNote.uri || `${url}/notes/${appearNote.id}`;
 						os.popup(defineAsyncComponent(() => import('@/components/abuse-report-window.vue')), {
 							user: appearNote.user,
-							urls: [u]
+							urls: [u],
 						}, {}, 'closed');
-					}
+					},
 				}]
 			: []
 			),

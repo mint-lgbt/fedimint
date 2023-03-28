@@ -1,6 +1,6 @@
 <template>
 <MkStickyContainer>
-	<template #header><MkPageHeader :actions="headerActions" :tabs="headerTabs"/></template>
+	<template #header><MkPageHeader :actions="headerActions"/></template>
 	<MkSpacer :content-max="800" :margin-min="16" :margin-max="32">
 		<div class="cwepdizn _formRoot">
 			<FormFolder :default-open="true" class="_formBlock">
@@ -49,7 +49,7 @@
 					<FormTextarea v-model="themeCode" tall class="_formBlock">
 						<template #label>{{ i18n.ts._theme.code }}</template>
 					</FormTextarea>
-					<FormButton primary class="_formBlock" @click="applyThemeCode">{{ i18n.ts.apply }}</FormButton>
+					<MkButton primary class="_formBlock" @click="applyThemeCode">{{ i18n.ts.apply }}</MkButton>
 				</div>
 			</FormFolder>
 
@@ -74,7 +74,7 @@ import tinycolor from 'tinycolor2';
 import { v4 as uuid } from 'uuid';
 import JSON5 from 'json5';
 
-import FormButton from '@/components/ui/button.vue';
+import MkButton from '@/components/ui/button.vue';
 import FormTextarea from '@/components/form/textarea.vue';
 import FormFolder from '@/components/form/folder.vue';
 
@@ -219,8 +219,6 @@ const headerActions = $computed(() => [{
 	text: i18n.ts.saveAs,
 	handler: saveAs,
 }]);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.themeEditor,

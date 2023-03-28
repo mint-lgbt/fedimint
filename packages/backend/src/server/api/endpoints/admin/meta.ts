@@ -1,6 +1,7 @@
 import config from '@/config/index.js';
 import { fetchMeta } from '@/misc/fetch-meta.js';
-import { MAX_NOTE_TEXT_LENGTH } from '@/const.js';
+import { TranslationService } from '@/models/entities/meta.js';
+import { translatorAvailable } from '../../common/translator.js';
 import define from '../../define.js';
 
 export const meta = {
@@ -47,7 +48,7 @@ export const meta = {
 			},
 			swPublickey: {
 				type: 'string',
-				optional: false, nullable: true,
+				optional: false, nullable: false,
 			},
 			bannerUrl: {
 				type: 'string',
@@ -101,22 +102,6 @@ export const meta = {
 				type: 'boolean',
 				optional: false, nullable: false,
 			},
-			enableTwitterIntegration: {
-				type: 'boolean',
-				optional: false, nullable: false,
-			},
-			enableGithubIntegration: {
-				type: 'boolean',
-				optional: false, nullable: false,
-			},
-			enableDiscordIntegration: {
-				type: 'boolean',
-				optional: false, nullable: false,
-			},
-			enableServiceWorker: {
-				type: 'boolean',
-				optional: false, nullable: false,
-			},
 			translatorAvailable: {
 				type: 'boolean',
 				optional: false, nullable: false,
@@ -166,30 +151,6 @@ export const meta = {
 				optional: true, nullable: true,
 				format: 'id',
 			},
-			twitterConsumerKey: {
-				type: 'string',
-				optional: true, nullable: true,
-			},
-			twitterConsumerSecret: {
-				type: 'string',
-				optional: true, nullable: true,
-			},
-			githubClientId: {
-				type: 'string',
-				optional: true, nullable: true,
-			},
-			githubClientSecret: {
-				type: 'string',
-				optional: true, nullable: true,
-			},
-			discordClientId: {
-				type: 'string',
-				optional: true, nullable: true,
-			},
-			discordClientSecret: {
-				type: 'string',
-				optional: true, nullable: true,
-			},
 			summaryProxy: {
 				type: 'string',
 				optional: true, nullable: true,
@@ -215,10 +176,6 @@ export const meta = {
 				optional: true, nullable: true,
 			},
 			smtpPass: {
-				type: 'string',
-				optional: true, nullable: true,
-			},
-			swPrivateKey: {
 				type: 'string',
 				optional: true, nullable: true,
 			},
@@ -270,6 +227,23 @@ export const meta = {
 				type: 'boolean',
 				optional: true, nullable: false,
 			},
+			translatorService: {
+				type: 'string',
+				enum: [null, ...Object.values(TranslationService)],
+				optional: false, nullable: true,
+			},
+			deeplAuthKey: {
+				type: 'string',
+				optional: true, nullable: true,
+			},
+			libreTranslateEndpoint: {
+				type: 'string',
+				optional: true, nullable: true,
+			},
+			libreTranslateAuthKey: {
+				type: 'string',
+				optional: true, nullable: true,
+			},
 		},
 	},
 } as const;
@@ -282,7 +256,7 @@ export const paramDef = {
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, paramDef, async (ps, me) => {
+export default define(meta, paramDef, async () => {
 	const instance = await fetchMeta(true);
 
 	return {
@@ -310,15 +284,10 @@ export default define(meta, paramDef, async (ps, me) => {
 		iconUrl: instance.iconUrl,
 		backgroundImageUrl: instance.backgroundImageUrl,
 		logoImageUrl: instance.logoImageUrl,
-		maxNoteTextLength: MAX_NOTE_TEXT_LENGTH, // 後方互換性のため
+		maxNoteTextLength: config.maxNoteTextLength,
 		defaultLightTheme: instance.defaultLightTheme,
 		defaultDarkTheme: instance.defaultDarkTheme,
 		enableEmail: instance.enableEmail,
-		enableTwitterIntegration: instance.enableTwitterIntegration,
-		enableGithubIntegration: instance.enableGithubIntegration,
-		enableDiscordIntegration: instance.enableDiscordIntegration,
-		enableServiceWorker: instance.enableServiceWorker,
-		translatorAvailable: instance.deeplAuthKey != null,
 		pinnedPages: instance.pinnedPages,
 		pinnedClipId: instance.pinnedClipId,
 		cacheRemoteFiles: instance.cacheRemoteFiles,
@@ -330,12 +299,6 @@ export default define(meta, paramDef, async (ps, me) => {
 		hcaptchaSecretKey: instance.hcaptchaSecretKey,
 		recaptchaSecretKey: instance.recaptchaSecretKey,
 		proxyAccountId: instance.proxyAccountId,
-		twitterConsumerKey: instance.twitterConsumerKey,
-		twitterConsumerSecret: instance.twitterConsumerSecret,
-		githubClientId: instance.githubClientId,
-		githubClientSecret: instance.githubClientSecret,
-		discordClientId: instance.discordClientId,
-		discordClientSecret: instance.discordClientSecret,
 		summalyProxy: instance.summalyProxy,
 		email: instance.email,
 		smtpSecure: instance.smtpSecure,
@@ -343,7 +306,6 @@ export default define(meta, paramDef, async (ps, me) => {
 		smtpPort: instance.smtpPort,
 		smtpUser: instance.smtpUser,
 		smtpPass: instance.smtpPass,
-		swPrivateKey: instance.swPrivateKey,
 		useObjectStorage: instance.useObjectStorage,
 		objectStorageBaseUrl: instance.objectStorageBaseUrl,
 		objectStorageBucket: instance.objectStorageBucket,
@@ -357,7 +319,11 @@ export default define(meta, paramDef, async (ps, me) => {
 		objectStorageUseProxy: instance.objectStorageUseProxy,
 		objectStorageSetPublicRead: instance.objectStorageSetPublicRead,
 		objectStorageS3ForcePathStyle: instance.objectStorageS3ForcePathStyle,
+
+		translatorAvailable: translatorAvailable(instance),
+		translationService: instance.translationService,
 		deeplAuthKey: instance.deeplAuthKey,
-		deeplIsPro: instance.deeplIsPro,
+		libreTranslateEndpoint: instance.libreTranslateEndpoint,
+		libreTranslateAuthKey: instance.libreTranslateAuthKey,
 	};
 });

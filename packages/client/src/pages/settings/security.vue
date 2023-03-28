@@ -2,7 +2,7 @@
 <div class="_formRoot">
 	<FormSection>
 		<template #label>{{ i18n.ts.password }}</template>
-		<FormButton primary @click="change()">{{ i18n.ts.changePassword }}</FormButton>
+		<MkButton primary @click="change()">{{ i18n.ts.changePassword }}</MkButton>
 	</FormSection>
 
 	<FormSection>
@@ -12,25 +12,29 @@
 	
 	<FormSection>
 		<template #label>{{ i18n.ts.signinHistory }}</template>
-		<MkPagination :pagination="pagination">
-			<template #default="{items}">
-				<div>
-					<div v-for="item in items" :key="item.id" v-panel class="timnmucd">
-						<header>
-							<i v-if="item.success" class="fas fa-check icon succ"></i>
-							<i v-else class="fas fa-times-circle icon fail"></i>
-							<code class="ip _monospace">{{ item.ip }}</code>
-							<MkTime :time="item.createdAt" class="time"/>
-						</header>
+		<FormSlot>
+			<MkPagination :pagination="pagination">
+				<template #default="{items}">
+					<div>
+						<div v-for="item in items" :key="item.id" v-panel class="timnmucd">
+							<header>
+								<i v-if="item.success" class="fas fa-check icon succ"></i>
+								<i v-else class="fas fa-times-circle icon fail"></i>
+								<code class="ip _monospace">{{ item.ip }}</code>
+								<MkTime :time="item.createdAt" class="time"/>
+							</header>
+						</div>
 					</div>
-				</div>
-			</template>
-		</MkPagination>
+				</template>
+				<template #empty>{{ i18n.ts.noMoreHistory }}</template>
+			</MkPagination>
+			<template #caption>{{ i18n.ts.signinHistoryExpires }}</template>
+		</FormSlot>
 	</FormSection>
 
 	<FormSection>
 		<FormSlot>
-			<FormButton danger @click="regenerateToken"><i class="fas fa-sync-alt"></i> {{ i18n.ts.regenerateLoginToken }}</FormButton>
+			<MkButton danger @click="regenerateToken"><i class="fas fa-sync-alt"></i> {{ i18n.ts.regenerateLoginToken }}</MkButton>
 			<template #caption>{{ i18n.ts.regenerateLoginTokenDescription }}</template>
 		</FormSlot>
 	</FormSection>
@@ -41,7 +45,7 @@
 import X2fa from './2fa.vue';
 import FormSection from '@/components/form/section.vue';
 import FormSlot from '@/components/form/slot.vue';
-import FormButton from '@/components/ui/button.vue';
+import MkButton from '@/components/ui/button.vue';
 import MkPagination from '@/components/ui/pagination.vue';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
@@ -92,14 +96,10 @@ function regenerateToken() {
 	}).then(({ canceled, result: password }) => {
 		if (canceled) return;
 		os.api('i/regenerate_token', {
-			password: password,
+			password,
 		});
 	});
 }
-
-const headerActions = $computed(() => []);
-
-const headerTabs = $computed(() => []);
 
 definePageMetadata({
 	title: i18n.ts.security,

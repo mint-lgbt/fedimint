@@ -3,7 +3,7 @@
 	<div class="main">
 		<div class="body">
 			<div class="selects" style="display: flex;">
-				<MkSelect v-model="chartSrc" style="margin: 0; flex: 1;">
+				<FormSelect v-model="chartSrc" style="margin: 0; flex: 1;">
 					<optgroup :label="i18n.ts.federation">
 						<option value="federation">{{ i18n.ts._charts.federation }}</option>
 						<option value="ap-request">{{ i18n.ts._charts.apRequest }}</option>
@@ -23,11 +23,11 @@
 						<option value="drive-files">{{ i18n.ts._charts.filesIncDec }}</option>
 						<option value="drive">{{ i18n.ts._charts.storageUsageIncDec }}</option>
 					</optgroup>
-				</MkSelect>
-				<MkSelect v-model="chartSpan" style="margin: 0 0 0 10px;">
+				</FormSelect>
+				<FormSelect v-model="chartSpan" style="margin: 0 0 0 10px;">
 					<option value="hour">{{ i18n.ts.perHour }}</option>
 					<option value="day">{{ i18n.ts.perDay }}</option>
-				</MkSelect>
+				</FormSelect>
 			</div>
 			<div class="chart">
 				<MkChart :src="chartSrc" :span="chartSpan" :limit="chartLimit" :detailed="detailed"></MkChart>
@@ -67,7 +67,7 @@ import {
 	Filler,
 	DoughnutController,
 } from 'chart.js';
-import MkSelect from '@/components/form/select.vue';
+import FormSelect from '@/components/form/select.vue';
 import MkChart from '@/components/chart.vue';
 import { useChartTooltip } from '@/scripts/use-chart-tooltip';
 import * as os from '@/os';
@@ -91,7 +91,7 @@ Chart.register(
 	Filler,
 );
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
 	chartLimit?: number;
 	detailed?: boolean;
 }>(), {
@@ -103,8 +103,7 @@ const chartSrc = $ref('active-users');
 let subDoughnutEl = $ref<HTMLCanvasElement>();
 let pubDoughnutEl = $ref<HTMLCanvasElement>();
 
-const { handler: externalTooltipHandler1 } = useChartTooltip();
-const { handler: externalTooltipHandler2 } = useChartTooltip();
+const { handler: externalTooltipHandler } = useChartTooltip();
 
 function createDoughnut(chartEl, tooltip, data) {
 	return new Chart(chartEl, {
@@ -148,8 +147,8 @@ function createDoughnut(chartEl, tooltip, data) {
 
 onMounted(() => {
 	os.apiGet('federation/stats', { limit: 15 }).then(fedStats => {
-		createDoughnut(subDoughnutEl, externalTooltipHandler1, fedStats.topSubInstances.map(x => ({ name: x.host, color: x.themeColor, value: x.followersCount })).concat([{ name: '(other)', color: '#80808080', value: fedStats.otherFollowersCount }]));
-		createDoughnut(pubDoughnutEl, externalTooltipHandler1, fedStats.topPubInstances.map(x => ({ name: x.host, color: x.themeColor, value: x.followingCount })).concat([{ name: '(other)', color: '#80808080', value: fedStats.otherFollowingCount }]));
+		createDoughnut(subDoughnutEl, externalTooltipHandler, fedStats.topSubInstances.map(x => ({ name: x.host, color: x.themeColor, value: x.followersCount })).concat([{ name: '(other)', color: '#80808080', value: fedStats.otherFollowersCount }]));
+		createDoughnut(pubDoughnutEl, externalTooltipHandler, fedStats.topPubInstances.map(x => ({ name: x.host, color: x.themeColor, value: x.followingCount })).concat([{ name: '(other)', color: '#80808080', value: fedStats.otherFollowingCount }]));
 	});
 });
 </script>

@@ -4,7 +4,8 @@
 	<div ref="emojis" class="emojis">
 		<section class="result">
 			<div v-if="searchResultCustom.length > 0">
-				<button v-for="emoji in searchResultCustom"
+				<button
+					v-for="emoji in searchResultCustom"
 					:key="emoji.id"
 					class="_button"
 					:title="emoji.name"
@@ -16,7 +17,8 @@
 				</button>
 			</div>
 			<div v-if="searchResultUnicode.length > 0">
-				<button v-for="emoji in searchResultUnicode"
+				<button
+					v-for="emoji in searchResultUnicode"
 					:key="emoji.name"
 					class="_button"
 					:title="emoji.name"
@@ -31,7 +33,8 @@
 		<div v-if="tab === 'index'" class="index">
 			<section v-if="showPinned">
 				<div>
-					<button v-for="emoji in pinned"
+					<button
+						v-for="emoji in pinned"
 						:key="emoji"
 						class="_button"
 						tabindex="0"
@@ -43,9 +46,10 @@
 			</section>
 
 			<section>
-				<header class="_acrylic"><i class="far fa-clock fa-fw"></i> {{ i18n.ts.recentUsed }}</header>
+				<header class="_panel"><i class="far fa-clock fa-fw"></i> {{ i18n.ts.recentUsed }}</header>
 				<div>
-					<button v-for="emoji in recentlyUsedEmojis"
+					<button
+						v-for="emoji in recentlyUsedEmojis"
 						:key="emoji"
 						class="_button"
 						@click="chosen(emoji, $event)"
@@ -55,12 +59,12 @@
 				</div>
 			</section>
 		</div>
-		<div>
-			<header class="_acrylic">{{ i18n.ts.customEmojis }}</header>
+		<div v-once>
+			<header class="_panel">{{ i18n.ts.customEmojis }}</header>
 			<XSection v-for="category in customEmojiCategories" :key="'custom:' + category" :initial-shown="false" :emojis="customEmojis.filter(e => e.category === category).map(e => ':' + e.name + ':')" @chosen="chosen">{{ category || i18n.ts.other }}</XSection>
 		</div>
-		<div>
-			<header class="_acrylic">{{ i18n.ts.emoji }}</header>
+		<div v-once>
+			<header class="_panel">{{ i18n.ts.emoji }}</header>
 			<XSection v-for="category in categories" :key="category" :emojis="emojilist.filter(e => e.category === category).map(e => e.char)" @chosen="chosen">{{ category }}</XSection>
 		</div>
 	</div>
@@ -75,7 +79,9 @@
 
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import * as Misskey from 'misskey-js';
+import * as foundkey from 'foundkey-js';
+import { distance as rodistance } from 'talisman/metrics/ratcliff-obershelp';
+import XSection from './emoji-picker.section.vue';
 import { emojilist, UnicodeEmojiDef, unicodeEmojiCategories as categories } from '@/scripts/emojilist';
 import { getStaticImageUrl } from '@/scripts/get-static-image-url';
 import Ripple from '@/components/ripple.vue';
@@ -83,7 +89,6 @@ import * as os from '@/os';
 import { isTouchUsing } from '@/scripts/touch';
 import { deviceKind } from '@/scripts/device-kind';
 import { emojiCategories, instance } from '@/instance';
-import XSection from './emoji-picker.section.vue';
 import { i18n } from '@/i18n';
 import { defaultStore } from '@/store';
 
@@ -108,6 +113,8 @@ const {
 	reactionPickerSize,
 	reactionPickerWidth,
 	reactionPickerHeight,
+	maxCustomEmojiPicker,
+	maxUnicodeEmojiPicker,
 	disableShowingAnimatedImages,
 	recentlyUsedEmojis,
 } = defaultStore.reactiveState;
@@ -118,155 +125,69 @@ const height = computed(() => props.asReactionPicker ? reactionPickerHeight.valu
 const customEmojiCategories = emojiCategories;
 const customEmojis = instance.emojis;
 const q = ref<string | null>(null);
-const searchResultCustom = ref<Misskey.entities.CustomEmoji[]>([]);
+const searchResultCustom = ref<foundkey.entities.CustomEmoji[]>([]);
 const searchResultUnicode = ref<UnicodeEmojiDef[]>([]);
 const tab = ref<'index' | 'custom' | 'unicode' | 'tags'>('index');
 
-watch(q, () => {
-	if (emojis.value) emojis.value.scrollTop = 0;
+function emojiSearch<Type extends foundkey.entities.CustomEmoji|UnicodeEmojiDef>(src: Type[], max: number, query: string): Type[] {
+	// discount fuzzy matching pattern
+	const re = new RegExp(query.split(' ').join('.*'), 'i');
+	const match = (str: string): boolean => !!str && re.test(str);
+	const aliases = (emoji: Type): string[] => {
+		// Custom and Unicode emojis have different fields
+		if ('aliases' in emoji) {
+			return emoji.aliases;
+		}
+		if ('keywords' in emoji) {
+			return emoji.keywords;
+		}
+		return [];
+	};
+	const matches = src.filter(emoji => match(emoji.name) || aliases(emoji).some(match));
 
-	if (q.value == null || q.value === '') {
+	// precompute distances
+	const distances = {};
+	const joinq = query.replace(/\s+/g, '');
+	const distance = (str: string): number => rodistance(joinq, str);
+	const mindistance = (strs: string[]): number => Math.min(...strs.map(distance));
+	const distinguisher = (emoji: Type): string => 'char' in emoji ? emoji.char : emoji.id;
+	for (const emoji of matches) {
+		distances[distinguisher(emoji)] = Math.min(distance(emoji.name), mindistance(aliases(emoji)));
+	}
+
+	// sort by distance from query
+	matches.sort((a, b) => distances[distinguisher(a)] - distances[distinguisher(b)]);
+	if (max <= 0 || matches.length < max) return matches;
+	return matches.slice(0, max);
+}
+
+let queryTimeoutId = -1;
+const queryCallback = (query) => {
+	if (emojis.value) emojis.value.scrollTop = 0;
+	searchResultCustom.value = emojiSearch(instance.emojis, maxCustomEmojiPicker.value, query);
+	searchResultUnicode.value = emojiSearch(emojilist, maxUnicodeEmojiPicker.value, query);
+	queryTimeoutId = -1;
+};
+watch(q, () => {
+	if (queryTimeoutId >= 0) {
+		clearTimeout(queryTimeoutId);
+		queryTimeoutId = -1;
+	}
+
+	const query = q.value;
+	if (query == null || query === '') {
 		searchResultCustom.value = [];
 		searchResultUnicode.value = [];
 		return;
 	}
 
-	const newQ = q.value.replace(/:/g, '').toLowerCase();
-
-	const searchCustom = () => {
-		const max = 8;
-		const emojis = customEmojis;
-		const matches = new Set<Misskey.entities.CustomEmoji>();
-
-		const exactMatch = emojis.find(emoji => emoji.name === newQ);
-		if (exactMatch) matches.add(exactMatch);
-
-		if (newQ.includes(' ')) { // AND検索
-			const keywords = newQ.split(' ');
-
-			// 名前にキーワードが含まれている
-			for (const emoji of emojis) {
-				if (keywords.every(keyword => emoji.name.includes(keyword))) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-			if (matches.size >= max) return matches;
-
-			// 名前またはエイリアスにキーワードが含まれている
-			for (const emoji of emojis) {
-				if (keywords.every(keyword => emoji.name.includes(keyword) || emoji.aliases.some(alias => alias.includes(keyword)))) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-		} else {
-			for (const emoji of emojis) {
-				if (emoji.name.startsWith(newQ)) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-			if (matches.size >= max) return matches;
-
-			for (const emoji of emojis) {
-				if (emoji.aliases.some(alias => alias.startsWith(newQ))) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-			if (matches.size >= max) return matches;
-
-			for (const emoji of emojis) {
-				if (emoji.name.includes(newQ)) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-			if (matches.size >= max) return matches;
-
-			for (const emoji of emojis) {
-				if (emoji.aliases.some(alias => alias.includes(newQ))) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-		}
-
-		return matches;
-	};
-
-	const searchUnicode = () => {
-		const max = 8;
-		const emojis = emojilist;
-		const matches = new Set<UnicodeEmojiDef>();
-
-		const exactMatch = emojis.find(emoji => emoji.name === newQ);
-		if (exactMatch) matches.add(exactMatch);
-
-		if (newQ.includes(' ')) { // AND検索
-			const keywords = newQ.split(' ');
-
-			// 名前にキーワードが含まれている
-			for (const emoji of emojis) {
-				if (keywords.every(keyword => emoji.name.includes(keyword))) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-			if (matches.size >= max) return matches;
-
-			// 名前またはエイリアスにキーワードが含まれている
-			for (const emoji of emojis) {
-				if (keywords.every(keyword => emoji.name.includes(keyword) || emoji.keywords.some(alias => alias.includes(keyword)))) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-		} else {
-			for (const emoji of emojis) {
-				if (emoji.name.startsWith(newQ)) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-			if (matches.size >= max) return matches;
-
-			for (const emoji of emojis) {
-				if (emoji.keywords.some(keyword => keyword.startsWith(newQ))) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-			if (matches.size >= max) return matches;
-
-			for (const emoji of emojis) {
-				if (emoji.name.includes(newQ)) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-			if (matches.size >= max) return matches;
-
-			for (const emoji of emojis) {
-				if (emoji.keywords.some(keyword => keyword.includes(newQ))) {
-					matches.add(emoji);
-					if (matches.size >= max) break;
-				}
-			}
-		}
-
-		return matches;
-	};
-
-	searchResultCustom.value = Array.from(searchCustom());
-	searchResultUnicode.value = Array.from(searchUnicode());
+	queryTimeoutId = setTimeout(queryCallback, 300, query);
 });
 
 function focus() {
 	if (!['smartphone', 'tablet'].includes(deviceKind) && !isTouchUsing) {
 		search.value?.focus({
-			preventScroll: true
+			preventScroll: true,
 		});
 	}
 }
@@ -276,7 +197,7 @@ function reset() {
 	q.value = '';
 }
 
-function getKey(emoji: string | Misskey.entities.CustomEmoji | UnicodeEmojiDef): string {
+function getKey(emoji: string | foundkey.entities.CustomEmoji | UnicodeEmojiDef): string {
 	return typeof emoji === 'string' ? emoji : (emoji.char || `:${emoji.name}:`);
 }
 
@@ -308,8 +229,7 @@ function paste(event: ClipboardEvent) {
 	}
 }
 
-function done(query?: any): boolean | void {
-	if (query == null) query = q.value;
+function done(query?: any = q.value): boolean | void {
 	if (query == null || typeof query !== 'string') return;
 
 	const q2 = query.replace(/:/g, '');

@@ -3,14 +3,16 @@
 	<div class="_title">{{ i18n.t('_auth.shareAccess', { name: app.name }) }}</div>
 	<div class="_content">
 		<h2>{{ app.name }}</h2>
-		<p class="id">{{ app.id }}</p>
 		<p class="description">{{ app.description }}</p>
 	</div>
 	<div class="_content">
 		<h2>{{ i18n.ts._auth.permissionAsk }}</h2>
-		<ul>
-			<li v-for="p in app.permission" :key="p">{{ i18n.t(`_permissions.${p}`) }}</li>
+		<ul v-if="permission.length > 0">
+			<li v-for="p in permission" :key="p">{{ i18n.t(`_permissions.${p}`) }}</li>
 		</ul>
+		<template v-else>
+			{{ i18n.ts.noPermissionRequested }}
+		</template>
 	</div>
 	<div class="_footer">
 		<MkButton inline @click="cancel">{{ i18n.ts.cancel }}</MkButton>
@@ -20,7 +22,6 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
 import MkButton from '@/components/ui/button.vue';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
@@ -31,12 +32,12 @@ const emit = defineEmits<{
 }>();
 
 const props = defineProps<{
+	// TODO: allow user to deselect some permissions
+	permission: string[];
 	session: {
 		app: {
 			name: string;
-			id: string;
 			description: string;
-			permission: string[];
 		};
 		token: string;
 	};
@@ -44,7 +45,7 @@ const props = defineProps<{
 
 const app = props.session.app;
 
-function cancel() {
+function cancel(): void {
 	os.api('auth/deny', {
 		token: props.session.token,
 	}).then(() => {
@@ -52,9 +53,10 @@ function cancel() {
 	});
 }
 
-function accept() {
+function accept(): void {
 	os.api('auth/accept', {
 		token: props.session.token,
+		permission: props.permission,
 	}).then(() => {
 		emit('accepted');
 	});

@@ -21,8 +21,6 @@ function getRandom() {
 	return str;
 }
 
-export function genId(date?: Date): string {
-	if (!date || (date > new Date())) date = new Date();
-
+export function genId(date: Date = new Date()): string {
 	return getTime(date.getTime()) + getRandom();
 }
