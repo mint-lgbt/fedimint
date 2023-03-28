@@ -1,23 +1,28 @@
-import * as crypto from 'node:crypto';
+const CHARS = '0123456789abcdef';
 
-// AID generation
-// 8 chars: milliseconds elapsed since 2000-01-01 00:00:00.000Z encoded as base36
-// + 2 random chars
+function getTime(time: number) {
+	if (time < 0) time = 0;
+	if (time === 0) {
+		return CHARS[0];
+	}
 
-const TIME2000 = 946684800000;
-let counter = crypto.randomBytes(2).readUInt16LE(0);
+	time += 0x800000000000;
+
+	return time.toString(16).padStart(12, CHARS[0]);
+}
+
+function getRandom() {
+	let str = '';
+
+	for (let i = 0; i < 12; i++) {
+		str += CHARS[Math.floor(Math.random() * CHARS.length)];
+	}
+
+	return str;
+}
 
 export function genId(date?: Date): string {
 	if (!date || (date > new Date())) date = new Date();
 
-	let t = date.getTime();
-	t -= TIME2000;
-	if (t < 0) t = 0;
-	if (isNaN(t)) throw new Error('Failed to create AID: Invalid Date');
-	const time = t.toString(36).padStart(8, '0');
-
-	counter++;
-	const noise = counter.toString(36).padStart(2, '0').slice(-2);
-
-	return time + noise;
+	return getTime(date.getTime()) + getRandom();
 }
